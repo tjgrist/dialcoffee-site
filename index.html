@@ -82,63 +82,13 @@ h1 .accent{color:var(--caramel)}
 .soon-note{font-size:.86em;color:var(--muted);margin:16px 0 0}
 
 /* ---- Phone mockup ---- */
+/* ---- Phone frame with a real screenshot ---- */
 .phone-col{display:flex;justify-content:center}
-.phone{width:296px;max-width:100%;aspect-ratio:296/608;background:#100c0a;
-  border-radius:46px;padding:11px;box-shadow:var(--shadow-phone);
-  border:1px solid rgba(255,255,255,.06);position:relative}
-.screen{width:100%;height:100%;border-radius:36px;overflow:hidden;
-  background:var(--page);display:flex;flex-direction:column;position:relative}
-.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);
-  width:86px;height:24px;background:#0a0706;border-radius:14px;z-index:5}
-.statusbar{display:flex;justify-content:space-between;align-items:center;
-  padding:13px 22px 4px;font-size:.72em;font-weight:600;color:var(--ink)}
-.statusbar .dots{display:flex;gap:5px;align-items:center;opacity:.85}
-.statusbar .dots span{width:15px;height:9px;border-radius:2px;background:currentColor;display:inline-block}
-.screen-scroll{padding:6px 15px 16px;overflow:hidden;flex:1}
+.phone{width:300px;max-width:100%;background:#100c0a;border-radius:48px;padding:11px;
+  box-shadow:var(--shadow-phone);border:1px solid rgba(255,255,255,.06)}
+.phone .screen{display:block;border-radius:38px;overflow:hidden;background:var(--page)}
+.phone .screen img{display:block;width:100%;height:auto}
 
-/* espresso banner (coffee header) */
-.coffee-banner{background:var(--espresso);border-radius:var(--card-radius);
-  padding:14px 15px;color:#fff;margin-bottom:11px}
-.coffee-banner .roaster{font-size:.72em;letter-spacing:.02em;opacity:.72;margin:0}
-.coffee-banner .name{font-size:1.18em;font-weight:700;letter-spacing:-.01em;margin:2px 0 8px}
-.coffee-banner .stars-row{display:flex;align-items:center;gap:7px;margin-bottom:11px}
-.coffee-banner .stars-row b{font-size:.82em;font-weight:600}
-.coffee-banner .stars-row s{font-size:.72em;opacity:.6;text-decoration:none}
-
-/* mock card (dial-in) */
-.mcard{background:var(--card);border-radius:var(--card-radius);padding:13px 14px;
-  box-shadow:var(--shadow);margin-bottom:11px}
-.mcard .label{font-size:.66em;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-  color:var(--caramel-text);margin:0 0 9px}
-.coach{display:flex;gap:9px;align-items:flex-start;background:color-mix(in srgb,var(--caramel) 12%,transparent);
-  border-radius:var(--inner-radius);padding:10px 11px}
-.coach .ic{width:24px;height:24px;border-radius:8px;flex:none;background:var(--caramel);
-  color:var(--on-caramel);display:grid;place-items:center;font-size:.82em;font-weight:700}
-.coach p{margin:0;font-size:.8em;line-height:1.4}
-.coach .verdict{color:var(--caramel-text);font-weight:700}
-
-/* stats row */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
-.stat{background:var(--card);border-radius:var(--inner-radius);padding:9px 6px;text-align:center;
-  box-shadow:var(--shadow)}
-.stat b{display:block;font-size:.95em;font-weight:700;letter-spacing:-.01em}
-.stat small{display:block;font-size:.6em;letter-spacing:.04em;text-transform:uppercase;
-  color:var(--muted);margin-top:2px}
-
-/* chips */
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{font-size:.72em;font-weight:500;padding:4px 10px;border-radius:999px;
-  background:color-mix(in srgb,var(--caramel) 15%,transparent);color:var(--caramel-text);
-  white-space:nowrap}
-.chip.leaf{background:color-mix(in srgb,var(--leaf) 18%,transparent);color:var(--leaf)}
-
-.mbtn{margin-top:11px;padding:12px;border-radius:var(--inner-radius);text-align:center;
-  background:var(--caramel);color:var(--on-caramel);font-size:.86em;font-weight:600;
-  box-shadow:var(--shadow)}
-.gearline{text-align:center;font-size:.68em;color:var(--muted);margin:9px 0 0}
-
-/* stars svg */
-.stars{height:15px;width:auto;display:inline-block}
 .badge .glyph svg{display:block;width:22px;height:22px}
 
 /* ---- Features ---- */
@@ -149,25 +99,22 @@ section.features{padding:16px 0 8px}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 .card{background:var(--card);border-radius:var(--card-radius);padding:22px 20px;
   box-shadow:var(--shadow);border:1px solid var(--hairline)}
-.card .icon{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;
-  font-size:1.4em;margin-bottom:14px;
-  background:color-mix(in srgb,var(--caramel) 16%,transparent)}
+.card .icon{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;
+  margin-bottom:14px;background:color-mix(in srgb,var(--caramel) 14%,transparent)}
+.card .icon svg{width:24px;height:24px;fill:none;stroke:var(--caramel);
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .card h3{margin:0 0 6px;font-size:1.08em;letter-spacing:-.01em}
 .card p{margin:0;font-size:.95em;line-height:1.5;color:var(--muted)}
 
-/* ---- Intel band ---- */
-.intel{margin:56px 0 8px;background:var(--card);border-radius:var(--card-radius);
-  border:1px solid var(--hairline);box-shadow:var(--shadow);
-  padding:30px;display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:center}
-.intel h2{font-size:1.5em;letter-spacing:-.02em;margin:0 0 10px;line-height:1.2}
-.intel p{color:var(--muted);margin:0;font-size:1.02em}
-.recipe{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--hairline)}
-.recipe:first-child{border-top:none}
-.recipe .av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;
-  font-size:.9em;font-weight:700;color:var(--on-caramel);background:var(--caramel)}
-.recipe .who{flex:1;min-width:0}
-.recipe .who b{font-size:.92em;display:block}
-.recipe .who small{font-size:.78em;color:var(--muted)}
+/* ---- Screenshot gallery ---- */
+.gallery{margin:64px 0 8px}
+.gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:36px}
+.shot{display:flex;flex-direction:column;align-items:center;text-align:center}
+.shot .frame{width:100%;max-width:280px;background:#100c0a;border-radius:38px;padding:8px;
+  box-shadow:var(--shadow-phone);border:1px solid rgba(255,255,255,.06)}
+.shot .frame img{display:block;width:100%;height:auto;border-radius:31px}
+.shot h3{font-size:1.05em;letter-spacing:-.01em;margin:20px 0 5px}
+.shot p{margin:0;font-size:.92em;line-height:1.45;color:var(--muted);max-width:30ch}
 
 /* ---- CTA ---- */
 .cta{text-align:center;margin:64px 0 28px;padding:44px 24px;border-radius:22px;
@@ -190,7 +137,7 @@ footer .cr{font-size:.88em;color:var(--muted)}
   .badges{justify-content:center}
   .phone-col{order:-1}
   .grid{grid-template-columns:1fr 1fr}
-  .intel{grid-template-columns:1fr;gap:22px}
+  .gallery-grid{grid-template-columns:1fr;gap:44px;max-width:340px;margin-left:auto;margin-right:auto}
 }
 @media(max-width:560px){
   .grid{grid-template-columns:1fr}
@@ -198,11 +145,6 @@ footer .cr{font-size:.88em;color:var(--muted)}
 }
 </style></head>
 <body>
-
-<!-- reusable star symbol -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-<path id="st" d="M12 17.3l-5.4 3.3 1.4-6.2-4.7-4.1 6.2-.6L12 4l2.5 5.7 6.2.6-4.7 4.1 1.4 6.2z"/>
-</defs></svg>
 
 <nav>
   <a class="brand" href="/"><span class="mark">☕</span>Dial Coffee</a>
@@ -236,55 +178,9 @@ footer .cr{font-size:.88em;color:var(--muted)}
 
     <div class="phone-col">
       <div class="phone">
-        <div class="island"></div>
         <div class="screen">
-          <div class="statusbar">
-            <span>9:41</span>
-            <span class="dots" aria-hidden="true"><span></span><span></span><span style="width:18px"></span></span>
-          </div>
-          <div class="screen-scroll">
-
-            <div class="coffee-banner">
-              <p class="roaster">SEY COFFEE · BROOKLYN</p>
-              <p class="name">Nightcap</p>
-              <div class="stars-row">
-                <svg class="stars" viewBox="0 0 120 24" aria-label="4.5 out of 5">
-                  <g fill="var(--star-empty)">
-                    <use href="#st" x="0"/><use href="#st" x="24"/><use href="#st" x="48"/><use href="#st" x="72"/><use href="#st" x="96"/>
-                  </g>
-                  <g fill="#F0B072" clip-path="inset(0 12px 0 0)">
-                    <use href="#st" x="0"/><use href="#st" x="24"/><use href="#st" x="48"/><use href="#st" x="72"/><use href="#st" x="96"/>
-                  </g>
-                </svg>
-                <b>4.5</b><s>· 38 brews</s>
-              </div>
-              <div class="chips">
-                <span class="chip leaf">Ethiopia</span>
-                <span class="chip">Cherry</span>
-                <span class="chip">Cocoa</span>
-                <span class="chip">Honey</span>
-              </div>
-            </div>
-
-            <div class="mcard">
-              <p class="label">Dial In · shot #3</p>
-              <div class="coach">
-                <span class="ic" aria-hidden="true">↓</span>
-                <p><span class="verdict">Sour, ran fast (22s).</span> Go one step finer to slow the flow and build sweetness.</p>
-              </div>
-            </div>
-
-            <div class="stats">
-              <div class="stat"><b>4.2</b><small>Grind</small></div>
-              <div class="stat"><b>18g</b><small>Dose</small></div>
-              <div class="stat"><b>36g</b><small>Yield</small></div>
-              <div class="stat"><b>1:2</b><small>Ratio</small></div>
-            </div>
-
-            <div class="mbtn">Log this shot</div>
-            <p class="gearline">Your gear · Niche Zero + Linea Mini</p>
-
-          </div>
+          <img src="assets/coffee-detail.png" width="560" height="1216"
+               alt="Dial Coffee's coffee detail screen: star rating, flavor and origin tags, a What Worked chart, and a top-rated espresso recipe.">
         </div>
       </div>
     </div>
@@ -296,47 +192,47 @@ footer .cr{font-size:.88em;color:var(--muted)}
       <p>A coach, a timer, and a journal — plus what actually worked for everyone else.</p>
     </div>
     <div class="grid">
-      <div class="card"><div class="icon">🎯</div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="var(--caramel)" stroke="none"/></svg></div>
         <h3>Espresso dial-in assistant</h3>
         <p>Tell it how the shot tasted — it tells you what to change next: grind, dose, temperature, one variable at a time.</p></div>
-      <div class="card"><div class="icon">⚙️</div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.3"/><line x1="12" y1="12" x2="16" y2="8"/><circle cx="12" cy="12" r="1.3" fill="var(--caramel)" stroke="none"/><line x1="12" y1="2.4" x2="12" y2="4.4"/><line x1="12" y1="19.6" x2="12" y2="21.6"/><line x1="2.4" y1="12" x2="4.4" y2="12"/><line x1="19.6" y1="12" x2="21.6" y2="12"/></svg></div>
         <h3>Knows your grinder</h3>
         <p>Calibrate once and every recipe is translated into your grinder's own dial numbers — not someone else's.</p></div>
-      <div class="card"><div class="icon">⏱️</div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V8.5"/><line x1="9.5" y1="2.5" x2="14.5" y2="2.5"/><line x1="19" y1="6" x2="20.5" y2="4.5"/></svg></div>
         <h3>Shot timer &amp; brew journal</h3>
         <p>A full-screen shot timer with a Lock Screen Live Activity, and a journal of every brew so you never lose a dial-in.</p></div>
-      <div class="card"><div class="icon">🫘</div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><path d="M6 20c-2-3-2-7 1-10 2.5-2.5 6.5-3.5 11-3.5 0 4.5-1 8.5-3.5 11-3 3-7 3-9.5 2.5z"/><path d="M8 18c2-4 5-7 9-8.5"/></svg></div>
         <h3>Freshness-aware</h3>
         <p>Track bags and roast dates. Coaching adapts as beans age — because Tuesday's perfect recipe drifts by Sunday.</p></div>
-      <div class="card"><div class="icon">⭐️</div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.2l5.4-.8z"/></svg></div>
         <h3>Community brew intel</h3>
         <p>See what actually worked for other people brewing the same coffee — ratios, grinds, and recipes, not just star ratings.</p></div>
-      <div class="card"><div class="icon">🔒</div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/><circle cx="12" cy="15" r="1.3" fill="var(--caramel)" stroke="none"/></svg></div>
         <h3>Private by design</h3>
         <p>No ads, no trackers, no analytics SDKs. Works fully offline; your saved brew methods never leave your device.</p></div>
     </div>
+  </section>
 
-    <div class="intel">
-      <div>
-        <h2>What worked, not just what's rated</h2>
-        <p>Every coffee shows the recipes that actually landed for other people — the exact ratio, grind, and time behind the rating. Start from a recipe that already works instead of from scratch.</p>
+  <section class="gallery">
+    <div class="sec-head">
+      <h2>See every shot coached</h2>
+      <p>Real screens — the dial-in coach, your brew journal, and grinder-native numbers.</p>
+    </div>
+    <div class="gallery-grid">
+      <div class="shot">
+        <div class="frame"><img src="assets/dial-in.png" width="560" height="1216" alt="Dial-in coaching screen: one clear change to make on the next shot, with the recipe for shot two."></div>
+        <h3>One change per shot</h3>
+        <p>Plain-language coaching that moves one variable at a time.</p>
       </div>
-      <div>
-        <div class="recipe">
-          <span class="av" aria-hidden="true">M</span>
-          <span class="who"><b>Maya · 4.7★ espresso</b><small>18g → 40g in 28s</small></span>
-          <span class="chips"><span class="chip">1:2.2</span><span class="chip leaf">Sweet</span></span>
-        </div>
-        <div class="recipe">
-          <span class="av" aria-hidden="true" style="background:var(--leaf)">J</span>
-          <span class="who"><b>Jon · 4.5★ V60</b><small>15g → 250g, 2:45</small></span>
-          <span class="chips"><span class="chip">1:16</span><span class="chip leaf">Floral</span></span>
-        </div>
-        <div class="recipe">
-          <span class="av" aria-hidden="true" style="background:var(--espresso)">R</span>
-          <span class="who"><b>Rae · 4.8★ espresso</b><small>19g → 38g in 30s</small></span>
-          <span class="chips"><span class="chip">1:2</span><span class="chip leaf">Syrupy</span></span>
-        </div>
+      <div class="shot">
+        <div class="frame"><img src="assets/journal.png" width="560" height="1216" alt="Journal screen: brew and review counts, a dial-in trend chart, and a history of logged brews."></div>
+        <h3>Every brew, remembered</h3>
+        <p>A journal of every shot with a dial-in trend you can watch improve.</p>
+      </div>
+      <div class="shot">
+        <div class="frame"><img src="assets/grinder.png" width="560" height="1216" alt="Grinder calibration screen: a true-zero offset and a searchable list of grinder models."></div>
+        <h3>Your grinder's numbers</h3>
+        <p>Pick your model, set a zero offset, and get recipes in your own dial units.</p>
       </div>
     </div>
   </section>
