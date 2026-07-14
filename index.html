@@ -2,64 +2,367 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Dial Coffee — review coffees, dial in espresso and filter brews, and learn from every cup. iOS app, coming soon to the App Store.">
-<title>Dial Coffee — dial in every cup</title><style>
-:root{--caramel:#C27340;--espresso:#3D291F;--cream:#FAF5ED;color-scheme:light dark}
-body{font:17px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:820px;
- margin:0 auto;padding:48px 24px;background:var(--cream);color:#2b1f18}
-@media(prefers-color-scheme:dark){body{background:#1c1713;color:#efe7dd}
- .card{background:#26201b}.badge{background:#26201b;border-color:#4a3d33}}
-h1{color:var(--caramel);font-size:2.4em;margin:0;line-height:1.15}
-.tagline{font-size:1.25em;margin:.4em 0 0;opacity:.85}
-.hero{margin:2em 0 3em}
-.mark{font-size:3em;line-height:1}
-h2{font-size:1.15em;margin:2.2em 0 .8em;color:var(--caramel);text-transform:uppercase;
- letter-spacing:.06em;font-weight:600}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
-.card{background:#fff;border-radius:14px;padding:18px 18px 16px;box-shadow:0 1px 3px rgba(61,41,31,.08)}
-.card .icon{font-size:1.6em}
-.card h3{margin:.4em 0 .2em;font-size:1em}
-.card p{margin:0;font-size:.92em;opacity:.75;line-height:1.45}
-.badges{display:flex;gap:12px;flex-wrap:wrap;margin-top:1em}
-.badge{display:inline-flex;flex-direction:column;justify-content:center;border:1.5px solid #cbb9a8;
- border-radius:10px;padding:8px 18px;background:#fff;opacity:.65;cursor:default;min-height:44px}
-.badge small{font-size:.68em;letter-spacing:.04em;text-transform:uppercase;opacity:.7}
-.badge span{font-weight:600;font-size:1.05em;line-height:1.2}
-.soon{font-size:.85em;opacity:.6;margin-top:.6em}
-footer{margin-top:4em;padding-top:1.4em;border-top:1px solid rgba(140,110,90,.25);
- font-size:.88em;opacity:.75}
-footer a{color:var(--caramel)}
-a{color:var(--caramel)}
+<meta name="theme-color" content="#3D2A1F">
+<title>Dial Coffee — dial in every cup</title>
+<style>
+/* ---- Palette: mirrors the app's Theme.swift. Every brand color is
+   adaptive — a warmer, brighter variant in dark mode so accents keep their
+   pop against dark surfaces (caramel brightens; espresso lifts). ---- */
+:root{
+  --caramel:#C27340; --caramel-text:#99541F;
+  --espresso:#3D2A1F; --latte:#EDDECC; --cream:#FAF5ED; --leaf:#548757;
+  --on-caramel:#ffffff;
+  --ink:#2b1f18; --muted:rgba(43,31,24,.60);
+  --page:#F4EFE7; --card:#ffffff;
+  --hairline:rgba(120,90,60,.16);
+  --shadow:0 1px 2px rgba(61,41,31,.05),0 10px 30px rgba(61,41,31,.07);
+  --shadow-phone:0 6px 16px rgba(61,41,31,.14),0 40px 80px rgba(61,41,31,.20);
+  --star-empty:rgba(120,90,60,.22);
+  --card-radius:16px; --inner-radius:12px;
+  color-scheme:light dark;
+}
+@media(prefers-color-scheme:dark){:root{
+  --caramel:#EBA166; --caramel-text:#EBA166;
+  --espresso:#54402E; --latte:#3D362E; --cream:#2B2621; --leaf:#8CBD8C;
+  --on-caramel:#331F0F;
+  --ink:#efe7dd; --muted:rgba(239,231,221,.58);
+  --page:#161210; --card:#241E19;
+  --hairline:rgba(255,220,180,.10);
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 34px rgba(0,0,0,.40);
+  --shadow-phone:0 8px 20px rgba(0,0,0,.5),0 44px 90px rgba(0,0,0,.55);
+  --star-empty:rgba(255,220,180,.18);
+}}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;font:17px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--page);color:var(--ink);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+a{color:var(--caramel-text);text-underline-offset:2px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+/* ---- Nav ---- */
+nav{display:flex;align-items:center;justify-content:space-between;
+  padding:20px 24px;max-width:1080px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;
+  font-size:1.15em;letter-spacing:-.01em;color:var(--ink);text-decoration:none}
+.brand .mark{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+  background:var(--espresso);font-size:1.15em;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.nav-soon{font-size:.78em;font-weight:600;letter-spacing:.02em;color:var(--caramel-text);
+  background:color-mix(in srgb,var(--caramel) 15%,transparent);
+  padding:6px 12px;border-radius:999px}
+
+/* ---- Hero ---- */
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;
+  padding:40px 0 64px}
+.eyebrow{font-size:.82em;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--caramel-text);margin:0 0 14px}
+h1{font-size:clamp(2.3em,5vw,3.3em);line-height:1.08;letter-spacing:-.025em;margin:0;
+  font-weight:700}
+h1 .accent{color:var(--caramel)}
+.lead{font-size:1.18em;line-height:1.5;color:var(--muted);margin:20px 0 28px;max-width:30ch}
+.ticks{list-style:none;padding:0;margin:0 0 30px;display:flex;flex-wrap:wrap;gap:8px 20px}
+.ticks li{display:flex;align-items:center;gap:8px;font-size:.95em;color:var(--muted)}
+.ticks svg{width:17px;height:17px;flex:none;color:var(--leaf)}
+
+/* store badges */
+.badges{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:10px;text-decoration:none;
+  background:var(--espresso);color:#fff;border-radius:13px;padding:10px 18px;min-height:52px;
+  box-shadow:var(--shadow)}
+.badge .glyph{font-size:1.5em;line-height:1}
+.badge small{display:block;font-size:.66em;letter-spacing:.04em;opacity:.72;
+  text-transform:uppercase}
+.badge b{font-size:1.05em;font-weight:600;letter-spacing:-.01em}
+.badge.soft{background:transparent;color:var(--muted);border:1.5px solid var(--hairline);
+  box-shadow:none}
+.badge.soft .glyph{opacity:.6}
+.soon-note{font-size:.86em;color:var(--muted);margin:16px 0 0}
+
+/* ---- Phone mockup ---- */
+.phone-col{display:flex;justify-content:center}
+.phone{width:296px;max-width:100%;aspect-ratio:296/608;background:#100c0a;
+  border-radius:46px;padding:11px;box-shadow:var(--shadow-phone);
+  border:1px solid rgba(255,255,255,.06);position:relative}
+.screen{width:100%;height:100%;border-radius:36px;overflow:hidden;
+  background:var(--page);display:flex;flex-direction:column;position:relative}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);
+  width:86px;height:24px;background:#0a0706;border-radius:14px;z-index:5}
+.statusbar{display:flex;justify-content:space-between;align-items:center;
+  padding:13px 22px 4px;font-size:.72em;font-weight:600;color:var(--ink)}
+.statusbar .dots{display:flex;gap:5px;align-items:center;opacity:.85}
+.statusbar .dots span{width:15px;height:9px;border-radius:2px;background:currentColor;display:inline-block}
+.screen-scroll{padding:6px 15px 16px;overflow:hidden;flex:1}
+
+/* espresso banner (coffee header) */
+.coffee-banner{background:var(--espresso);border-radius:var(--card-radius);
+  padding:14px 15px;color:#fff;margin-bottom:11px}
+.coffee-banner .roaster{font-size:.72em;letter-spacing:.02em;opacity:.72;margin:0}
+.coffee-banner .name{font-size:1.18em;font-weight:700;letter-spacing:-.01em;margin:2px 0 8px}
+.coffee-banner .stars-row{display:flex;align-items:center;gap:7px;margin-bottom:11px}
+.coffee-banner .stars-row b{font-size:.82em;font-weight:600}
+.coffee-banner .stars-row s{font-size:.72em;opacity:.6;text-decoration:none}
+
+/* mock card (dial-in) */
+.mcard{background:var(--card);border-radius:var(--card-radius);padding:13px 14px;
+  box-shadow:var(--shadow);margin-bottom:11px}
+.mcard .label{font-size:.66em;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--caramel-text);margin:0 0 9px}
+.coach{display:flex;gap:9px;align-items:flex-start;background:color-mix(in srgb,var(--caramel) 12%,transparent);
+  border-radius:var(--inner-radius);padding:10px 11px}
+.coach .ic{width:24px;height:24px;border-radius:8px;flex:none;background:var(--caramel);
+  color:var(--on-caramel);display:grid;place-items:center;font-size:.82em;font-weight:700}
+.coach p{margin:0;font-size:.8em;line-height:1.4}
+.coach .verdict{color:var(--caramel-text);font-weight:700}
+
+/* stats row */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.stat{background:var(--card);border-radius:var(--inner-radius);padding:9px 6px;text-align:center;
+  box-shadow:var(--shadow)}
+.stat b{display:block;font-size:.95em;font-weight:700;letter-spacing:-.01em}
+.stat small{display:block;font-size:.6em;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);margin-top:2px}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:.72em;font-weight:500;padding:4px 10px;border-radius:999px;
+  background:color-mix(in srgb,var(--caramel) 15%,transparent);color:var(--caramel-text);
+  white-space:nowrap}
+.chip.leaf{background:color-mix(in srgb,var(--leaf) 18%,transparent);color:var(--leaf)}
+
+.mbtn{margin-top:11px;padding:12px;border-radius:var(--inner-radius);text-align:center;
+  background:var(--caramel);color:var(--on-caramel);font-size:.86em;font-weight:600;
+  box-shadow:var(--shadow)}
+.gearline{text-align:center;font-size:.68em;color:var(--muted);margin:9px 0 0}
+
+/* stars svg */
+.stars{height:15px;width:auto;display:inline-block}
+.badge .glyph svg{display:block;width:22px;height:22px}
+
+/* ---- Features ---- */
+section.features{padding:16px 0 8px}
+.sec-head{text-align:center;max-width:34ch;margin:0 auto 38px}
+.sec-head h2{font-size:clamp(1.6em,3.4vw,2.1em);letter-spacing:-.02em;margin:0 0 10px;line-height:1.15}
+.sec-head p{color:var(--muted);margin:0;font-size:1.05em}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:var(--card);border-radius:var(--card-radius);padding:22px 20px;
+  box-shadow:var(--shadow);border:1px solid var(--hairline)}
+.card .icon{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;
+  font-size:1.4em;margin-bottom:14px;
+  background:color-mix(in srgb,var(--caramel) 16%,transparent)}
+.card h3{margin:0 0 6px;font-size:1.08em;letter-spacing:-.01em}
+.card p{margin:0;font-size:.95em;line-height:1.5;color:var(--muted)}
+
+/* ---- Intel band ---- */
+.intel{margin:56px 0 8px;background:var(--card);border-radius:var(--card-radius);
+  border:1px solid var(--hairline);box-shadow:var(--shadow);
+  padding:30px;display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:center}
+.intel h2{font-size:1.5em;letter-spacing:-.02em;margin:0 0 10px;line-height:1.2}
+.intel p{color:var(--muted);margin:0;font-size:1.02em}
+.recipe{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--hairline)}
+.recipe:first-child{border-top:none}
+.recipe .av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-size:.9em;font-weight:700;color:var(--on-caramel);background:var(--caramel)}
+.recipe .who{flex:1;min-width:0}
+.recipe .who b{font-size:.92em;display:block}
+.recipe .who small{font-size:.78em;color:var(--muted)}
+
+/* ---- CTA ---- */
+.cta{text-align:center;margin:64px 0 28px;padding:44px 24px;border-radius:22px;
+  background:var(--espresso);color:#fff;box-shadow:var(--shadow)}
+.cta h2{font-size:clamp(1.6em,3.6vw,2.2em);letter-spacing:-.02em;margin:0 0 8px}
+.cta p{opacity:.78;margin:0 auto 24px;max-width:44ch}
+.cta .badges{justify-content:center}
+
+/* ---- Footer ---- */
+footer{border-top:1px solid var(--hairline);margin-top:56px;padding:28px 0 48px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+footer .links a{color:var(--muted);text-decoration:none;margin-right:18px;font-size:.92em}
+footer .links a:hover{color:var(--caramel-text)}
+footer .cr{font-size:.88em;color:var(--muted)}
+
+@media(max-width:820px){
+  .hero{grid-template-columns:1fr;gap:36px;padding:24px 0 48px;text-align:center}
+  .hero .lead{margin-left:auto;margin-right:auto}
+  .ticks{justify-content:center}
+  .badges{justify-content:center}
+  .phone-col{order:-1}
+  .grid{grid-template-columns:1fr 1fr}
+  .intel{grid-template-columns:1fr;gap:22px}
+}
+@media(max-width:560px){
+  .grid{grid-template-columns:1fr}
+  nav{padding:16px}
+}
 </style></head>
 <body>
-<div class="hero">
-<div class="mark">☕</div>
-<h1>Dial Coffee</h1>
-<p class="tagline">Review coffees. Dial in brews. Learn from every cup — yours and everyone else's.</p>
-<div class="badges">
-  <div class="badge"><small>Coming soon on the</small><span>App Store</span></div>
-  <div class="badge"><small>Coming later to</small><span>Google Play</span></div>
-</div>
-<p class="soon">Dial Coffee is in final preparation for the App Store. Check back soon.</p>
-</div>
 
-<h2>What it does</h2>
-<div class="grid">
-<div class="card"><div class="icon">🎯</div><h3>Espresso Dial-In Assistant</h3>
-<p>Tell it how the shot tasted — it tells you what to change next: grind, dose, temperature, one variable at a time.</p></div>
-<div class="card"><div class="icon">⚙️</div><h3>Knows your grinder</h3>
-<p>Calibrate once and every recipe is translated into your grinder's own dial numbers — not someone else's.</p></div>
-<div class="card"><div class="icon">⏱️</div><h3>Shot timer &amp; brew journal</h3>
-<p>Full-screen shot timer with Live Activity on your Lock Screen, and a journal of every brew so you never lose a dial-in.</p></div>
-<div class="card"><div class="icon">🫘</div><h3>Freshness-aware</h3>
-<p>Track bags and roast dates. Coaching adapts as beans age — because Tuesday's perfect recipe drifts by Sunday.</p></div>
-<div class="card"><div class="icon">⭐️</div><h3>Community brew intel</h3>
-<p>See what actually worked for other people brewing the same coffee — ratios, grinds, and recipes, not just star ratings.</p></div>
-<div class="card"><div class="icon">🔒</div><h3>Private by design</h3>
-<p>No ads, no trackers, no analytics SDKs. Works fully offline; your saved brew methods never leave your device.</p></div>
+<!-- reusable star symbol -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<path id="st" d="M12 17.3l-5.4 3.3 1.4-6.2-4.7-4.1 6.2-.6L12 4l2.5 5.7 6.2.6-4.7 4.1 1.4 6.2z"/>
+</defs></svg>
+
+<nav>
+  <a class="brand" href="/"><span class="mark">☕</span>Dial Coffee</a>
+  <span class="nav-soon">Coming soon · iOS</span>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Espresso &amp; filter · iPhone</p>
+      <h1>Dial in <span class="accent">every cup</span> — one variable at a time.</h1>
+      <p class="lead">Tell it how the shot tasted. It tells you exactly what to change next — in your grinder's own numbers.</p>
+      <ul class="ticks">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> No ads or trackers</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Works fully offline</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Free to start</li>
+      </ul>
+      <div class="badges">
+        <a class="badge" aria-disabled="true">
+          <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.04c-.03-2.9 2.37-4.29 2.48-4.36-1.35-1.98-3.46-2.25-4.21-2.28-1.79-.18-3.5 1.05-4.41 1.05-.91 0-2.31-1.03-3.8-1-1.96.03-3.77 1.14-4.78 2.9-2.04 3.53-.52 8.76 1.46 11.63.97 1.4 2.12 2.98 3.63 2.92 1.46-.06 2.01-.94 3.77-.94 1.76 0 2.26.94 3.8.91 1.57-.03 2.56-1.43 3.52-2.84 1.11-1.63 1.57-3.21 1.59-3.29-.03-.02-3.05-1.17-3.08-4.64zM14.13 4.36c.81-.98 1.35-2.35 1.2-3.71-1.16.05-2.57.77-3.41 1.75-.75.86-1.41 2.24-1.23 3.57 1.29.1 2.62-.66 3.44-1.61z"/></svg></span>
+          <span><small>Coming soon on the</small><b>App Store</b></span>
+        </a>
+        <a class="badge soft" aria-disabled="true">
+          <span class="glyph" aria-hidden="true">▶</span>
+          <span><small>Coming later to</small><b>Google Play</b></span>
+        </a>
+      </div>
+      <p class="soon-note">In final preparation for the App Store. Check back soon.</p>
+    </div>
+
+    <div class="phone-col">
+      <div class="phone">
+        <div class="island"></div>
+        <div class="screen">
+          <div class="statusbar">
+            <span>9:41</span>
+            <span class="dots" aria-hidden="true"><span></span><span></span><span style="width:18px"></span></span>
+          </div>
+          <div class="screen-scroll">
+
+            <div class="coffee-banner">
+              <p class="roaster">SEY COFFEE · BROOKLYN</p>
+              <p class="name">Nightcap</p>
+              <div class="stars-row">
+                <svg class="stars" viewBox="0 0 120 24" aria-label="4.5 out of 5">
+                  <g fill="var(--star-empty)">
+                    <use href="#st" x="0"/><use href="#st" x="24"/><use href="#st" x="48"/><use href="#st" x="72"/><use href="#st" x="96"/>
+                  </g>
+                  <g fill="#F0B072" clip-path="inset(0 12px 0 0)">
+                    <use href="#st" x="0"/><use href="#st" x="24"/><use href="#st" x="48"/><use href="#st" x="72"/><use href="#st" x="96"/>
+                  </g>
+                </svg>
+                <b>4.5</b><s>· 38 brews</s>
+              </div>
+              <div class="chips">
+                <span class="chip leaf">Ethiopia</span>
+                <span class="chip">Cherry</span>
+                <span class="chip">Cocoa</span>
+                <span class="chip">Honey</span>
+              </div>
+            </div>
+
+            <div class="mcard">
+              <p class="label">Dial In · shot #3</p>
+              <div class="coach">
+                <span class="ic" aria-hidden="true">↓</span>
+                <p><span class="verdict">Sour, ran fast (22s).</span> Go one step finer to slow the flow and build sweetness.</p>
+              </div>
+            </div>
+
+            <div class="stats">
+              <div class="stat"><b>4.2</b><small>Grind</small></div>
+              <div class="stat"><b>18g</b><small>Dose</small></div>
+              <div class="stat"><b>36g</b><small>Yield</small></div>
+              <div class="stat"><b>1:2</b><small>Ratio</small></div>
+            </div>
+
+            <div class="mbtn">Log this shot</div>
+            <p class="gearline">Your gear · Niche Zero + Linea Mini</p>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="features">
+    <div class="sec-head">
+      <h2>Everything you need to pull a better shot</h2>
+      <p>A coach, a timer, and a journal — plus what actually worked for everyone else.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="icon">🎯</div>
+        <h3>Espresso dial-in assistant</h3>
+        <p>Tell it how the shot tasted — it tells you what to change next: grind, dose, temperature, one variable at a time.</p></div>
+      <div class="card"><div class="icon">⚙️</div>
+        <h3>Knows your grinder</h3>
+        <p>Calibrate once and every recipe is translated into your grinder's own dial numbers — not someone else's.</p></div>
+      <div class="card"><div class="icon">⏱️</div>
+        <h3>Shot timer &amp; brew journal</h3>
+        <p>A full-screen shot timer with a Lock Screen Live Activity, and a journal of every brew so you never lose a dial-in.</p></div>
+      <div class="card"><div class="icon">🫘</div>
+        <h3>Freshness-aware</h3>
+        <p>Track bags and roast dates. Coaching adapts as beans age — because Tuesday's perfect recipe drifts by Sunday.</p></div>
+      <div class="card"><div class="icon">⭐️</div>
+        <h3>Community brew intel</h3>
+        <p>See what actually worked for other people brewing the same coffee — ratios, grinds, and recipes, not just star ratings.</p></div>
+      <div class="card"><div class="icon">🔒</div>
+        <h3>Private by design</h3>
+        <p>No ads, no trackers, no analytics SDKs. Works fully offline; your saved brew methods never leave your device.</p></div>
+    </div>
+
+    <div class="intel">
+      <div>
+        <h2>What worked, not just what's rated</h2>
+        <p>Every coffee shows the recipes that actually landed for other people — the exact ratio, grind, and time behind the rating. Start from a recipe that already works instead of from scratch.</p>
+      </div>
+      <div>
+        <div class="recipe">
+          <span class="av" aria-hidden="true">M</span>
+          <span class="who"><b>Maya · 4.7★ espresso</b><small>18g → 40g in 28s</small></span>
+          <span class="chips"><span class="chip">1:2.2</span><span class="chip leaf">Sweet</span></span>
+        </div>
+        <div class="recipe">
+          <span class="av" aria-hidden="true" style="background:var(--leaf)">J</span>
+          <span class="who"><b>Jon · 4.5★ V60</b><small>15g → 250g, 2:45</small></span>
+          <span class="chips"><span class="chip">1:16</span><span class="chip leaf">Floral</span></span>
+        </div>
+        <div class="recipe">
+          <span class="av" aria-hidden="true" style="background:var(--espresso)">R</span>
+          <span class="who"><b>Rae · 4.8★ espresso</b><small>19g → 38g in 30s</small></span>
+          <span class="chips"><span class="chip">1:2</span><span class="chip leaf">Syrupy</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <h2>Stop guessing. Start dialing.</h2>
+    <p>Dial Coffee is in final preparation for the App Store. Check back soon — or bookmark this page.</p>
+    <div class="badges">
+      <a class="badge" aria-disabled="true">
+        <span class="glyph" aria-hidden="true"></span>
+        <span><small>Coming soon on the</small><b>App Store</b></span>
+      </a>
+    </div>
+  </section>
+
 </div>
 
 <footer>
-<p><a href="privacy.html">Privacy Policy</a> · <a href="terms.html">Terms of Use</a> · <a href="support.html">Support</a></p>
-<p>© 2026 Dial Coffee</p>
+  <div class="wrap">
+    <div class="links">
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="support.html">Support</a>
+    </div>
+    <div class="cr">© 2026 Dial Coffee</div>
+  </div>
 </footer>
+
 </body></html>
