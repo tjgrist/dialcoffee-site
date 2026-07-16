@@ -53,8 +53,8 @@ nav{display:flex;align-items:center;justify-content:space-between;
   padding:20px 24px;max-width:1080px;margin:0 auto}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;
   font-size:1.15em;letter-spacing:-.01em;color:var(--ink);text-decoration:none}
-.brand .mark{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
-  background:var(--espresso);font-size:1.15em;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.brand .mark{width:38px;height:38px;border-radius:11px;object-fit:cover;display:block;
+  box-shadow:0 1px 2px rgba(61,41,31,.14)}
 .nav-soon{font-size:.78em;font-weight:600;letter-spacing:.02em;color:var(--caramel-text);
   background:color-mix(in srgb,var(--caramel) 15%,transparent);
   padding:6px 12px;border-radius:999px}
@@ -152,7 +152,7 @@ footer .cr{font-size:.88em;color:var(--muted)}
 <body>
 
 <nav>
-  <a class="brand" href="/"><span class="mark">☕</span>Dial Coffee</a>
+  <a class="brand" href="/"><img class="mark" src="/icon-192.png" width="38" height="38" alt="">Dial Coffee</a>
   <span class="nav-soon">Coming soon · iOS</span>
 </nav>
 
@@ -218,9 +218,6 @@ footer .cr{font-size:.88em;color:var(--muted)}
       <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.2l5.4-.8z"/></svg></div>
         <h3>Community brew intel</h3>
         <p>See what actually worked for other people brewing the same coffee — ratios, grinds, and recipes, not just star ratings.</p></div>
-      <div class="card"><div class="icon"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/><circle cx="12" cy="15" r="1.3" fill="var(--caramel)" stroke="none"/></svg></div>
-        <h3>Private by design</h3>
-        <p>No ads, no trackers, no analytics SDKs. Works fully offline, and your data is yours — export it anytime or delete your account for good.</p></div>
     </div>
   </section>
 
