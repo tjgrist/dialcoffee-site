@@ -113,8 +113,9 @@ section.features{padding:16px 0 8px}
 
 /* ---- Screenshot gallery ---- */
 .gallery{margin:64px 0 8px}
-.gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:36px}
-.shot{display:flex;flex-direction:column;align-items:center;text-align:center}
+.gallery-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:28px;margin-top:36px}
+.shot{display:flex;flex-direction:column;align-items:center;text-align:center;
+  flex:0 1 calc((100% - 56px)/3);min-width:220px}
 .shot .frame{width:100%;max-width:280px;background:#100c0a;border-radius:38px;padding:8px;
   box-shadow:var(--shadow-phone);border:1px solid rgba(255,255,255,.06)}
 .shot .frame img{display:block;width:100%;height:auto;border-radius:31px}
@@ -142,7 +143,8 @@ footer .cr{font-size:.88em;color:var(--muted)}
   .badges{justify-content:center}
   .phone-col{order:-1}
   .grid{grid-template-columns:1fr 1fr}
-  .gallery-grid{grid-template-columns:1fr;gap:44px;max-width:340px;margin-left:auto;margin-right:auto}
+  .gallery-grid{gap:44px;max-width:340px;margin-left:auto;margin-right:auto}
+  .shot{flex-basis:100%}
 }
 @media(max-width:560px){
   .grid{grid-template-columns:1fr}
@@ -160,7 +162,7 @@ footer .cr{font-size:.88em;color:var(--muted)}
 
   <header class="hero">
     <div>
-      <p class="eyebrow">Espresso, pour-over &amp; AeroPress · iPhone</p>
+      <p class="eyebrow">Espresso, Pour-over, AeroPress &amp; more · iPhone</p>
       <h1>Dial in <span class="accent">every cup</span> — one variable at a time.</h1>
       <p class="lead">Tell it how the shot tasted. It tells you exactly what to change next — in your grinder's own numbers.</p>
       <ul class="ticks">
@@ -227,13 +229,23 @@ footer .cr{font-size:.88em;color:var(--muted)}
   <section class="gallery">
     <div class="sec-head">
       <h2>See every shot coached</h2>
-      <p>Real screens — the dial-in coach, your brew journal, and grinder-native numbers.</p>
+      <p>Real screens — browse the catalog, coach every shot, and keep the journal that remembers what worked.</p>
     </div>
     <div class="gallery-grid">
+      <div class="shot">
+        <div class="frame"><img src="assets/discover.png" width="560" height="1216" alt="Discover screen: a search bar, a 'How do you brew?' method picker, roast and origin filter chips, and shelves of coffees with ratings."></div>
+        <h3>Find your next coffee</h3>
+        <p>Browse thousands of coffees by roast, origin, price — or by how you brew.</p>
+      </div>
       <div class="shot">
         <div class="frame"><img src="assets/dial-in.png" width="560" height="1216" alt="Dial-in coaching screen: after a sour shot it suggests one change — raise the temperature a degree — with the full recipe for the next shot."></div>
         <h3>One change per shot</h3>
         <p>Plain-language coaching that moves one variable at a time.</p>
+      </div>
+      <div class="shot">
+        <div class="frame"><img src="assets/brew-hub.png" width="560" height="1216" alt="Brew screen: a Repeat Last Brew card showing the espresso recipe at a glance, plus Log a Brew and Dial In shortcuts."></div>
+        <h3>Your next brew, one tap away</h3>
+        <p>Repeat your last shot in a tap, log a new one, or hand a sour shot to the coach.</p>
       </div>
       <div class="shot">
         <div class="frame"><img src="assets/journal.png" width="560" height="1216" alt="Journal screen: brew and review counts, a brewing streak, Brew Insights and Taste Profile summaries, and a history of logged brews."></div>
