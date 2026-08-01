@@ -1,0 +1,701 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dial Coffee — operator triage</title>
+<style>
+  :root { --bg:#171310; --card:#241e19; --line:#3a322b; --ink:#efe7dd; --dim:#a99a8a;
+          --caramel:#eba066; --leaf:#8cbd8c; --red:#e07a6a; }
+  * { box-sizing:border-box; margin:0 }
+  body { background:var(--bg); color:var(--ink);
+         font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         padding-bottom:calc(38vh + env(safe-area-inset-bottom)); -webkit-text-size-adjust:100% }
+  a { color:var(--dim) }
+  button { background:var(--caramel); color:#2b1a0c; border:0; border-radius:8px;
+           padding:6px 12px; font-weight:600; cursor:pointer; font-size:13px }
+  button.ghost { background:transparent; color:var(--caramel); border:1px solid var(--caramel) }
+  button:disabled { opacity:.4; cursor:default }
+  input, select { font:13px inherit }
+  input[type=search], input[type=number], input[type=email], input[type=password] {
+    background:var(--card); border:1px solid var(--line); color:var(--ink);
+    border-radius:8px; padding:7px 10px }
+
+  /* ---- Login gate ---- */
+  #login { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px }
+  #login .box { background:var(--card); border:1px solid var(--line); border-radius:14px;
+                padding:26px 24px; width:100%; max-width:340px }
+  #login h1 { font-size:19px; margin-bottom:4px } #login h1 span { color:var(--caramel) }
+  #login p { color:var(--dim); font-size:12px; margin-bottom:18px }
+  #login label { display:block; color:var(--dim); font-size:11px; text-transform:uppercase;
+                 letter-spacing:.04em; margin:12px 0 4px }
+  #login input { width:100% }
+  #login button { width:100%; margin-top:18px; padding:10px }
+  #login .err { color:var(--red); font-size:12px; margin-top:12px; min-height:1em }
+
+  /* ---- Shell ---- */
+  #app { display:none }
+  header { position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--bg) 92%, transparent);
+           backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+           padding:calc(10px + env(safe-area-inset-top)) 18px 0 }
+  .toprow { display:flex; align-items:center; gap:12px; flex-wrap:wrap }
+  .toprow h1 { font-size:16px } .toprow h1 span { color:var(--caramel) }
+  .toprow .spacer { flex:1 }
+  .who { color:var(--dim); font-size:12px }
+  .tabs { display:flex; gap:4px; margin-top:10px }
+  .tabs .tab { background:transparent; color:var(--dim); border:0; border-bottom:2px solid transparent;
+               border-radius:0; padding:8px 12px; font-weight:600; font-size:14px }
+  .tabs .tab.on { color:var(--ink); border-bottom-color:var(--caramel) }
+  .tabs .tab .badge { color:var(--dim); font-weight:400; font-size:12px; margin-left:4px }
+  .controls { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; padding:10px 0 12px; font-size:13px }
+  .controls label { display:flex; gap:5px; align-items:center; cursor:pointer; user-select:none }
+  .sub { color:var(--dim); font-size:12px }
+
+  .pane { display:none } .pane.on { display:block }
+  .loading, .empty-state { color:var(--dim); padding:40px 18px; text-align:center }
+
+  details { border-bottom:1px solid var(--line) }
+  summary { display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; padding:9px 18px; cursor:pointer; list-style:none }
+  summary::-webkit-details-marker { display:none }
+  summary .n { font-weight:600 }
+  summary a { font-size:12px; text-decoration:none }
+  .chip { font-size:11px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); color:var(--dim) }
+  .chip.warn { border-color:var(--red); color:var(--red); font-weight:600 }
+  .chip.rated { border-color:var(--caramel); color:var(--caramel) }
+  .chip.on { border-color:var(--leaf); color:var(--leaf); font-weight:600 }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; padding:6px 18px 18px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden;
+          position:relative; font-size:12px }
+  .staged .card, .roasters .card { cursor:default }
+  .staged .card { cursor:pointer }
+  .card img, .card .noimg { width:100%; aspect-ratio:1; object-fit:cover; background:#1c1712; display:block }
+  .card .noimg { display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:11px }
+  .card .b { padding:7px 9px 9px }
+  .card .t { font-weight:600; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2;
+             -webkit-box-orient:vertical; overflow:hidden; min-height:2.5em }
+  .card .m { color:var(--dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .card .r { color:var(--caramel); font-weight:600 }
+  .card .notes { color:var(--dim); font-size:11px; margin-top:2px; display:-webkit-box;
+                 -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden }
+  .card a { text-decoration:none; font-size:11px }
+  .card .so { color:var(--red); font-weight:700; font-size:10px; text-transform:uppercase }
+  .tag { position:absolute; top:6px; left:6px; font-size:10px; font-weight:700; padding:1px 7px;
+         border-radius:99px; background:#0008; color:var(--dim) }
+  .tag.E { color:var(--leaf) } .tag.S { color:var(--red) }
+
+  /* Staged cohort/lens visibility (body-class driven, ported from build_triage.py). */
+  .staged.hideE .card.cE, .staged.hideU .card.cU, .staged.hideS .card.cS { display:none }
+  .staged.ratedOnly .card:not(.cR) { display:none }
+  .staged.hideSold .card.cSO { display:none }
+  .card.pOFF { display:none }
+  .card.eOFF { outline:2px solid var(--red) }
+  .card.eOFF::after { content:"excluded"; position:absolute; top:6px; right:6px; background:var(--red);
+                      color:#fff; font-size:10px; font-weight:700; padding:1px 7px; border-radius:99px }
+
+  /* Roaster verdict switch (ported from build_roaster_triage.py). */
+  .verdict { margin-left:auto; display:flex; gap:2px; border:1px solid var(--line);
+             border-radius:99px; overflow:hidden; font-size:12px }
+  .verdict label { padding:4px 11px; cursor:pointer; user-select:none; color:var(--dim); min-height:32px;
+                   display:flex; align-items:center }
+  .verdict input { display:none }
+  .verdict label:has(input:checked) { background:var(--bg); color:var(--ink); font-weight:600 }
+  .verdict label:has(input[value=adopt]:checked) { color:var(--leaf) }
+  .verdict label:has(input[value=remove]:checked) { color:var(--red) }
+  .verdict label.off { opacity:.35; pointer-events:none }
+  .subline { padding:0 18px 8px; color:var(--dim); font-size:12px }
+
+  /* Submitted editor cards (ported from build_submitted_triage.py). */
+  .submitted #subgrid { padding:16px 18px; display:grid;
+                        grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px }
+  .ecard { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px 16px }
+  .ecard.approve { outline:2px solid var(--leaf) }
+  .ecard.reject { outline:2px solid var(--red); opacity:.75 }
+  .ecard .hd { display:flex; gap:12px; margin-bottom:10px }
+  .ecard .thumb { width:64px; height:64px; border-radius:8px; object-fit:cover; background:#1c1712;
+                  border:1px solid var(--line); flex:none }
+  .ecard .thumb.empty { display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:10px; text-align:center }
+  .ecard .nm { font-weight:600; line-height:1.2 }
+  .ecard .meta { color:var(--dim); font-size:12px; margin-top:3px }
+  .badge2 { display:inline-block; font-size:10px; font-weight:700; padding:1px 7px; border-radius:99px; margin-top:5px }
+  .badge2.enriched { background:var(--leaf); color:#10240f }
+  .badge2.nomatch { border:1px solid var(--line); color:var(--dim) }
+  .fld { margin-top:8px }
+  .fld label { display:block; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px }
+  .fld input, .fld select { width:100%; background:var(--bg); border:1px solid var(--line); color:var(--ink);
+                            border-radius:7px; padding:6px 9px }
+  .fld input.bad { border-color:var(--red) }
+  .fwarn { color:var(--red); font-size:11px; margin-top:3px; display:none }
+  .fwarn.show { display:block }
+  .row2 { display:flex; gap:10px } .row2 .fld { flex:1 }
+  .switch { display:flex; gap:6px; margin-top:12px }
+  .switch button { flex:1; background:transparent; border:1px solid var(--line); color:var(--dim) }
+  .switch button.on-approve { background:var(--leaf); color:#10240f; border-color:var(--leaf) }
+  .switch button.on-reject { background:var(--red); color:#2b0f0c; border-color:var(--red) }
+
+  /* Sticky action bar + toast. */
+  #actionbar { position:fixed; left:0; right:0; bottom:0; z-index:9;
+               background:#100d0a; border-top:2px solid var(--caramel);
+               padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+               display:flex; align-items:center; gap:12px; transform:translateY(110%);
+               transition:transform .15s ease }
+  #actionbar.show { transform:none }
+  #actionbar .summary { flex:1; font-size:13px }
+  #actionbar button { padding:10px 18px }
+  #toast { position:fixed; left:50%; bottom:0; transform:translate(-50%, 130%); z-index:20;
+           background:var(--card); border:1px solid var(--line); border-radius:10px;
+           padding:12px 18px; margin-bottom:calc(18px + env(safe-area-inset-bottom));
+           max-width:90vw; font-size:13px; transition:transform .2s ease; box-shadow:0 6px 24px #0007 }
+  #toast.show { transform:translate(-50%, 0) }
+  #toast.err { border-color:var(--red); color:var(--red) }
+  #toast.ok { border-color:var(--leaf) }
+</style>
+
+<div id="login">
+  <form class="box" id="loginForm">
+    <h1>Dial <span>Coffee</span></h1>
+    <p>Operator triage — sign in with your moderator account.</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button type="submit" id="loginBtn">Sign in</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</div>
+
+<div id="app">
+  <header>
+    <div class="toprow">
+      <h1>Dial <span>Coffee</span> triage</h1>
+      <div class="spacer"></div>
+      <span class="who" id="who"></span>
+      <button class="ghost" id="refreshBtn">Refresh</button>
+      <button class="ghost" id="logoutBtn">Sign out</button>
+    </div>
+    <div class="tabs">
+      <button class="tab on" data-tab="staged">Staged<span class="badge" id="badge-staged"></span></button>
+      <button class="tab" data-tab="roasters">Roasters<span class="badge" id="badge-roasters"></span></button>
+      <button class="tab" data-tab="submitted">Submitted<span class="badge" id="badge-submitted"></span></button>
+    </div>
+    <div class="controls" id="staged-controls" style="display:none">
+      <label><input type="checkbox" id="cEver" checked> evergreen <span class="sub" id="n-ever"></span></label>
+      <label><input type="checkbox" id="cUnk" checked> unclassified <span class="sub" id="n-unk"></span></label>
+      <label><input type="checkbox" id="cSeas" checked> seasonal <span class="sub" id="n-seas"></span></label>
+      <label><input type="checkbox" id="cRated"> ★ rated only <span class="sub" id="n-rated"></span></label>
+      <label><input type="checkbox" id="cStock" checked> hide sold-out <span class="sub" id="n-sold"></span></label>
+      <label>≤ $<input type="number" id="maxPrice" min="1" step="1" placeholder="any" style="width:64px"></label>
+      <input type="search" id="q" placeholder="filter roasters…" style="width:180px">
+      <button class="ghost" id="checkAll">check all</button>
+      <button class="ghost" id="uncheckAll">uncheck all</button>
+      <button class="ghost" id="expandSel">expand selected</button>
+      <button class="ghost" id="collapseAll">collapse all</button>
+    </div>
+    <div class="controls" id="roasters-controls" style="display:none">
+      <span class="sub">adopt = enable the 6-hourly seed rotation · leave = keep the one-shot scrape · remove = delete registry row + purge hidden staged rows</span>
+      <button class="ghost" id="rExpandAll">expand all</button>
+      <button class="ghost" id="rCollapseAll">collapse all</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="pane staged on" id="pane-staged"><div class="loading">Loading…</div></div>
+    <div class="pane roasters" id="pane-roasters"><div class="loading">Loading…</div></div>
+    <div class="pane submitted" id="pane-submitted"><div class="loading">Loading…</div></div>
+  </main>
+
+  <div id="actionbar">
+    <span class="summary" id="actionSummary"></span>
+    <button id="actionBtn">Approve</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+// The operator-triage Edge Function (this page is hosted separately, e.g. in
+// Supabase Storage, and calls the function's API — same-origin when both live
+// under <ref>.supabase.co, but the absolute URL keeps it working from anywhere).
+const API = "https://tddwrnpeeerbwyymkujy.supabase.co/functions/v1/operator-triage";
+const ROASTS = ["light","medium_light","medium","medium_dark","dark"];
+const ROAST_LABEL = {light:"Light", medium_light:"Medium-Light", medium:"Medium",
+                     medium_dark:"Medium-Dark", dark:"Dark"};
+const COHORT_LABEL = {E:"evergreen", U:"unclassified", S:"seasonal"};
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function cohortOf(it){ return it.ever === true ? 'E' : (it.ever === false ? 'S' : 'U'); }
+const $ = id => document.getElementById(id);
+
+// ---- Token store + API wrapper ---------------------------------------------
+const TK = 'dc_triage_tokens';
+function saveTokens(t){ sessionStorage.setItem(TK, JSON.stringify(t)); }
+function tokens(){ try { return JSON.parse(sessionStorage.getItem(TK)); } catch { return null; } }
+function clearTokens(){ sessionStorage.removeItem(TK); }
+
+// Post an action to this same function URL. Adds the bearer; on a 401 tries one
+// refresh, then retries; a failed refresh drops back to the login gate.
+async function api(body, _retried){
+  const t = tokens();
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json',
+               ...(t?.access_token ? { Authorization: 'Bearer ' + t.access_token } : {}) },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401 && !_retried && t?.refresh_token) {
+    const r = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'refresh', refresh_token: t.refresh_token }) });
+    if (r.ok) { saveTokens(await r.json()); return api(body, true); }
+    clearTokens(); showLogin(); throw new Error('Session expired — sign in again.');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || (res.status + ' ' + res.statusText));
+  return data;
+}
+
+let toastTimer;
+function toast(msg, kind){
+  const el = $('toast');
+  el.textContent = msg; el.className = 'show' + (kind ? ' ' + kind : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, kind === 'err' ? 6000 : 3500);
+}
+
+// ---- Login -----------------------------------------------------------------
+function showLogin(){ $('app').style.display = 'none'; $('login').style.display = 'flex'; }
+function showApp(email){ $('login').style.display = 'none'; $('app').style.display = 'block';
+  $('who').textContent = email || ''; }
+
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = $('email').value.trim(), password = $('password').value;
+  $('loginErr').textContent = ''; $('loginBtn').disabled = true;
+  try {
+    const t = await api({ action:'login', email, password });
+    saveTokens(t); showApp(email);
+    loadTab('staged');
+  } catch (err) {
+    $('loginErr').textContent = err.message || 'Sign-in failed.';
+  } finally { $('loginBtn').disabled = false; }
+});
+$('logoutBtn').onclick = () => { clearTokens(); location.reload(); };
+
+// ---- Tabs ------------------------------------------------------------------
+let activeTab = 'staged';
+const cache = {};            // tab -> data
+const dirty = { staged:true, roasters:true, submitted:true };
+
+function setTab(tab){
+  activeTab = tab;
+  for (const b of document.querySelectorAll('.tab')) b.classList.toggle('on', b.dataset.tab === tab);
+  for (const p of document.querySelectorAll('.pane')) p.classList.toggle('on', p.id === 'pane-' + tab);
+  $('staged-controls').style.display = tab === 'staged' ? '' : 'none';
+  $('roasters-controls').style.display = tab === 'roasters' ? '' : 'none';
+  updateActionBar();
+  if (dirty[tab]) loadTab(tab);
+}
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+$('refreshBtn').onclick = () => { dirty[activeTab] = true; loadTab(activeTab); };
+
+async function loadTab(tab){
+  const pane = $('pane-' + tab);
+  pane.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    const data = await api({ action: tab });
+    cache[tab] = data; dirty[tab] = false;
+    if (tab === 'staged') renderStaged(data);
+    else if (tab === 'roasters') renderRoasters(data);
+    else renderSubmitted(data);
+  } catch (err) {
+    pane.innerHTML = '<div class="empty-state">' + esc(err.message || 'Failed to load.') + '</div>';
+  }
+}
+
+// ---- Action bar ------------------------------------------------------------
+function updateActionBar(){
+  const bar = $('actionbar');
+  if (activeTab === 'staged')      updateStagedBar(bar);
+  else if (activeTab === 'roasters') updateRoasterBar(bar);
+  else                              updateSubmittedBar(bar);
+}
+
+// ============================================================================
+// STAGED TAB — ported from tools/triage/build_triage.py
+// ============================================================================
+const stagedExcluded = new Set();
+
+function renderStaged(payload){
+  const pane = $('pane-staged');
+  pane.className = 'pane staged on hideSold';
+  stagedExcluded.clear();
+  const c = payload.counts;
+  $('badge-staged').textContent = c.total ? '· ' + c.total.toLocaleString() : '';
+  $('n-ever').textContent = '(' + c.ever.toLocaleString() + ')';
+  $('n-unk').textContent = '(' + c.unk.toLocaleString() + ')';
+  $('n-seas').textContent = '(' + c.seas.toLocaleString() + ')';
+  $('n-rated').textContent = '(' + c.rated.toLocaleString() + ')';
+  $('n-sold').textContent = '(' + c.sold.toLocaleString() + ')';
+
+  pane.innerHTML = '';
+  if (!payload.roasters.length) { pane.innerHTML = '<div class="empty-state">Nothing staged — the queue is clear.</div>'; updateActionBar(); return; }
+  const list = document.createElement('div'); list.id = 'staged-list'; pane.appendChild(list);
+  for (const r of payload.roasters) {
+    const d = document.createElement('details');
+    d.dataset.name = r.name.toLowerCase();
+    const ever = r.items.filter(i => i.ever === true).length;
+    const rated = r.items.filter(i => i.rating != null).length;
+    d.innerHTML = '<summary>' +
+        '<input type="checkbox" class="inc" ' + (r.outlier ? '' : 'checked') + ' onclick="event.stopPropagation()">' +
+        '<span class="n">' + esc(r.name) + '</span>' +
+        '<span class="chip cnt">' + r.items.length + ' staged</span>' +
+        '<span class="chip">' + ever + ' evergreen</span>' +
+        (rated ? '<span class="chip rated">★ ' + rated + ' rated</span>' : '') +
+        (r.outlier ? '<span class="chip warn">outlier — check feed</span>' : '') +
+      '</summary><div class="grid"></div>';
+    d.addEventListener('toggle', () => { if (d.open && !d.dataset.done) { renderStagedGrid(d, r); d.dataset.done = 1; } });
+    d._r = r;
+    list.appendChild(d);
+  }
+  for (const id of ['cEver','cUnk','cSeas','cRated','cStock']) $(id).onchange = applyStagedFilters;
+  $('q').oninput = applyStagedFilters;
+  $('maxPrice').oninput = applyStagedFilters;
+  $('checkAll').onclick = () => { list.querySelectorAll('.inc').forEach(x => x.checked = true); updateStagedBar($('actionbar')); };
+  $('uncheckAll').onclick = () => { list.querySelectorAll('.inc').forEach(x => x.checked = false); updateStagedBar($('actionbar')); };
+  $('expandSel').onclick = () => {
+    for (const d of list.children) {
+      if (d.style.display === 'none') continue;
+      if (!d.querySelector('.inc').checked) continue;
+      if (!d.open) { d.open = true; d.dispatchEvent(new Event('toggle')); }
+    }
+  };
+  $('collapseAll').onclick = () => { for (const d of list.children) d.open = false; };
+  list.addEventListener('change', e => { if (e.target.classList.contains('inc')) updateStagedBar($('actionbar')); });
+
+  [...list.children].slice(-6).forEach(d => d.open = true);
+  applyStagedFilters();
+}
+
+function renderStagedGrid(d, r){
+  const g = d.querySelector('.grid');
+  g.innerHTML = r.items.map(it =>
+    '<div class="card c' + cohortOf(it) + (it.rating != null ? ' cR' : '') + (it.stock === false ? ' cSO' : '') +
+        (stagedExcluded.has(it.id) ? ' eOFF' : '') + (stagedOverPrice(it) ? ' pOFF' : '') +
+        '" data-id="' + it.id + '" data-price="' + it.price + '">' +
+      '<span class="tag ' + cohortOf(it) + '">' + COHORT_LABEL[cohortOf(it)] + '</span>' +
+      (it.img ? '<img loading="lazy" src="' + esc(it.img) + '" alt="">' : '<div class="noimg">no image</div>') +
+      '<div class="b">' +
+        '<div class="t">' + esc(it.name) + '</div>' +
+        '<div class="m">' + (it.stock === false ? '<span class="so">sold out</span> · ' : '') + '$' + it.price +
+          (it.origin ? ' · ' + esc(it.origin) : '') + (it.roast ? ' · ' + esc(it.roast) : '') + '</div>' +
+        (it.rating != null ? '<div class="r">★ ' + it.rating + ' × ' + it.rcount + '</div>' : '') +
+        (it.notes ? '<div class="notes">' + esc(it.notes) + '</div>' : '') +
+        (it.url ? '<a href="' + esc(it.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">product page ↗</a>' : '') +
+      '</div></div>').join('');
+  g.addEventListener('click', e => {
+    if (e.target.tagName === 'A') return;
+    const card = e.target.closest('.card'); if (!card) return;
+    const id = card.dataset.id;
+    stagedExcluded.has(id) ? stagedExcluded.delete(id) : stagedExcluded.add(id);
+    card.classList.toggle('eOFF');
+    updateStagedBar($('actionbar'));
+  });
+}
+
+const stagedCohortsOn = () => ({ E:$('cEver').checked, U:$('cUnk').checked, S:$('cSeas').checked });
+const stagedRatedOnly = () => $('cRated').checked;
+const stagedHideSold  = () => $('cStock').checked;
+function stagedMaxPrice(){ const v = parseFloat($('maxPrice').value); return Number.isFinite(v) && v > 0 ? v : null; }
+const stagedOverPrice = i => { const mp = stagedMaxPrice(); return mp != null && i.price > mp; };
+const stagedPasses = (i, on) => on[cohortOf(i)] && (!stagedRatedOnly() || i.rating != null) &&
+  !stagedOverPrice(i) && !(stagedHideSold() && i.stock === false);
+
+function applyStagedFilters(){
+  const pane = $('pane-staged'), list = $('staged-list'); if (!list) return;
+  const on = stagedCohortsOn();
+  pane.classList.toggle('hideE', !on.E);
+  pane.classList.toggle('hideU', !on.U);
+  pane.classList.toggle('hideS', !on.S);
+  pane.classList.toggle('ratedOnly', stagedRatedOnly());
+  pane.classList.toggle('hideSold', stagedHideSold());
+  const q = $('q').value.toLowerCase(), mp = stagedMaxPrice();
+  for (const d of list.children) {
+    const r = d._r;
+    const vis = r.items.filter(i => stagedPasses(i, on)).length;
+    d.querySelector('.cnt').textContent = vis === r.items.length ? r.items.length + ' staged' : vis + ' shown of ' + r.items.length;
+    d.style.display = (vis > 0 && d.dataset.name.includes(q)) ? '' : 'none';
+    if (d.dataset.done) for (const cd of d.querySelectorAll('.card'))
+      cd.classList.toggle('pOFF', mp != null && parseFloat(cd.dataset.price) > mp);
+  }
+  updateStagedBar($('actionbar'));
+}
+
+// Ids that would be approved: visible + checked roasters, minus excluded cards,
+// constrained by the same passes() the local page used to keep the batch == screen.
+function stagedSelectedIds(){
+  const list = $('staged-list'); if (!list) return [];
+  const on = stagedCohortsOn(); const ids = [];
+  for (const d of list.children) {
+    if (d.style.display === 'none') continue;
+    if (!d.querySelector('.inc').checked) continue;
+    for (const i of d._r.items)
+      if (!stagedExcluded.has(i.id) && stagedPasses(i, on)) ids.push(i.id);
+  }
+  return ids;
+}
+
+function updateStagedBar(bar){
+  if (activeTab !== 'staged') return;
+  const ids = stagedSelectedIds();
+  bar.classList.toggle('show', ids.length > 0);
+  $('actionSummary').textContent = ids.length + ' coffee' + (ids.length === 1 ? '' : 's') + ' selected to publish';
+  const btn = $('actionBtn'); btn.disabled = false; btn.textContent = 'Approve ' + ids.length;
+  btn.onclick = () => approveStaged(ids);
+}
+
+async function approveStaged(ids){
+  if (!ids.length) return;
+  if (!confirm('Publish ' + ids.length + ' staged coffee' + (ids.length === 1 ? '' : 's') + '?')) return;
+  const btn = $('actionBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
+  try {
+    const r = await api({ action:'approve_staged', ids });
+    toast('Published ' + r.published + ' coffee' + (r.published === 1 ? '' : 's') + '.', 'ok');
+    dirty.staged = true; loadTab('staged');
+  } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
+}
+
+// ============================================================================
+// ROASTERS TAB — ported from tools/triage/build_roaster_triage.py
+// ============================================================================
+function renderRoasters(payload){
+  const pane = $('pane-roasters'); pane.innerHTML = '';
+  $('badge-roasters').textContent = payload.length ? '· ' + payload.length : '';
+  if (!payload.length) { pane.innerHTML = '<div class="empty-state">No user-submitted roasters awaiting a decision.</div>'; updateActionBar(); return; }
+  const list = document.createElement('div'); list.id = 'roaster-list'; pane.appendChild(list);
+  for (const r of payload) {
+    const d = document.createElement('details');
+    const ever = r.items.filter(i => i.ever === true).length;
+    const noImg = r.items.filter(i => !i.img).length;
+    const sub = r.lastSub;
+    d.innerHTML = '<summary>' +
+        '<span class="n">' + esc(r.name) + '</span>' +
+        '<a href="https://' + esc(r.domain) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + esc(r.domain) + ' ↗</a>' +
+        '<span class="chip">' + esc(r.platform) + '</span>' +
+        '<span class="chip">' + r.items.length + ' staged · ' + ever + ' evergreen</span>' +
+        (noImg ? '<span class="chip warn">' + noImg + ' missing image</span>' : '') +
+        (r.enabled ? '<span class="chip on">in rotation</span>' : '<span class="chip">disabled</span>') +
+        '<span class="verdict" onclick="event.stopPropagation()">' +
+          '<label class="' + (r.enabled ? 'off' : '') + '"><input type="radio" name="v-' + esc(r.id) + '" value="adopt">adopt</label>' +
+          '<label><input type="radio" name="v-' + esc(r.id) + '" value="leave" checked>leave</label>' +
+          '<label><input type="radio" name="v-' + esc(r.id) + '" value="remove">remove</label>' +
+        '</span>' +
+      '</summary>' +
+      '<div class="subline">submitted ' + esc(r.since) + (r.scraped ? ' · last scraped ' + esc(r.scraped) : '') +
+        ' · ' + r.subs + ' submission' + (r.subs === 1 ? '' : 's') +
+        (sub ? ' · latest: ' + esc(sub.status) + ' (' + esc(sub.detail) + ')' : '') + '</div>' +
+      '<div class="grid"></div>';
+    d.addEventListener('toggle', () => { if (d.open && !d.dataset.done) { renderRoasterGrid(d, r); d.dataset.done = 1; } });
+    d._r = r;
+    list.appendChild(d);
+  }
+  list.addEventListener('change', () => updateRoasterBar($('actionbar')));
+  $('rExpandAll').onclick = () => { for (const d of list.children) if (!d.open) { d.open = true; d.dispatchEvent(new Event('toggle')); } };
+  $('rCollapseAll').onclick = () => { for (const d of list.children) d.open = false; };
+  [...list.children].forEach(d => { d.open = true; d.dispatchEvent(new Event('toggle')); });
+  updateRoasterBar($('actionbar'));
+}
+
+function renderRoasterGrid(d, r){
+  d.querySelector('.grid').innerHTML = r.items.map(it =>
+    '<div class="card">' +
+      '<span class="tag ' + cohortOf(it) + '">' + COHORT_LABEL[cohortOf(it)] + '</span>' +
+      (it.img ? '<img loading="lazy" src="' + esc(it.img) + '" alt="">' : '<div class="noimg">no image</div>') +
+      '<div class="b">' +
+        '<div class="t">' + esc(it.name) + '</div>' +
+        '<div class="m">' + (it.stock === false ? '<span class="so">sold out</span> · ' : '') +
+          (it.price != null ? '$' + it.price : 'no price') +
+          (it.origin ? ' · ' + esc(it.origin) : '') + (it.roast ? ' · ' + esc(it.roast) : '') + '</div>' +
+        (it.notes ? '<div class="notes">' + esc(it.notes) + '</div>' : '') +
+        (it.url ? '<a href="' + esc(it.url) + '" target="_blank" rel="noopener">product page ↗</a>' : '') +
+      '</div></div>').join('');
+}
+
+function roasterVerdicts(){
+  const list = $('roaster-list'); const adopt = [], remove = [];
+  if (list) for (const d of list.children) {
+    const v = d.querySelector('input[type=radio]:checked')?.value;
+    if (v === 'adopt' && !d._r.enabled) adopt.push(d._r);
+    if (v === 'remove') remove.push(d._r);
+  }
+  return { adopt, remove };
+}
+
+function updateRoasterBar(bar){
+  if (activeTab !== 'roasters') return;
+  const { adopt, remove } = roasterVerdicts();
+  const n = adopt.length + remove.length;
+  bar.classList.toggle('show', n > 0);
+  $('actionSummary').textContent = adopt.length + ' to adopt · ' + remove.length + ' to remove';
+  const btn = $('actionBtn'); btn.disabled = false; btn.textContent = 'Apply ' + n;
+  btn.onclick = () => applyRoasterVerdicts(adopt, remove);
+}
+
+async function applyRoasterVerdicts(adopt, remove){
+  if (!adopt.length && !remove.length) return;
+  let msg;
+  if (remove.length) msg = 'Remove ' + remove.length + ' roaster' + (remove.length === 1 ? '' : 's') +
+    ' (deletes registry rows + purges their hidden staged coffees)' + (adopt.length ? ' and adopt ' + adopt.length : '') + '?';
+  else msg = 'Adopt ' + adopt.length + ' roaster' + (adopt.length === 1 ? '' : 's') + ' into the seed rotation?';
+  if (!confirm(msg)) return;
+  const btn = $('actionBtn'); btn.disabled = true; btn.textContent = 'Applying…';
+  try {
+    const r = await api({ action:'roaster_verdict', adopt: adopt.map(x => x.id), remove: remove.map(x => x.id) });
+    toast('Adopted ' + r.adopted + ' · removed ' + r.removed + ' (purged ' + r.purged + ' staged).', 'ok');
+    dirty.roasters = true; dirty.staged = true; loadTab('roasters');
+  } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
+}
+
+// ============================================================================
+// SUBMITTED TAB — ported from tools/triage/build_submitted_triage.py
+// ============================================================================
+const submittedState = {};   // id -> 'hold' | 'approve' | 'reject'
+
+function renderSubmitted(payload){
+  const pane = $('pane-submitted'); pane.innerHTML = '';
+  $('badge-submitted').textContent = payload.length ? '· ' + payload.length : '';
+  for (const k of Object.keys(submittedState)) delete submittedState[k];
+  if (!payload.length) { pane.innerHTML = '<div class="empty-state">Nothing pending — no user submissions are waiting.</div>'; updateActionBar(); return; }
+  const grid = document.createElement('div'); grid.id = 'subgrid'; pane.appendChild(grid);
+  for (const c of payload) {
+    submittedState[c.id] = 'hold';
+    const card = document.createElement('div');
+    card.className = 'ecard'; card.dataset.id = c.id;
+    const opts = ROASTS.map(r => '<option value="' + r + '"' + (r === c.roast ? ' selected' : '') + '>' + ROAST_LABEL[r] + '</option>').join('');
+    card.innerHTML =
+      '<div class="hd">' +
+        '<img class="thumb ' + (c.image ? '' : 'empty') + '" ' + (c.image ? 'src="' + esc(c.image) + '"' : '') +
+          ' data-thumb alt="" onerror="this.classList.add(\'empty\');this.removeAttribute(\'src\')">' +
+        '<div><div class="nm">' + esc(c.name) + '</div>' +
+          '<div class="meta">' + esc(c.roaster) + '<br>by ' + esc(c.by || '—') + ' · ' + esc(c.created) + '</div>' +
+          (c.enriched ? ((c.image || c.product)
+            ? '<span class="badge2 enriched">auto-enriched</span>'
+            : '<span class="badge2 nomatch">enrich: no match</span>') : '') +
+        '</div></div>' +
+      '<div class="fld"><label>Image URL (https)</label>' +
+        '<input data-f="image" value="' + esc(c.image) + '" placeholder="https://…">' +
+        '<div class="fwarn" data-w="image">Must start with https://</div></div>' +
+      '<div class="fld"><label>Origin</label>' +
+        '<input data-f="origin" value="' + esc(c.origin) + '" placeholder="e.g. Ethiopia, Yirgacheffe" maxlength="200"></div>' +
+      '<div class="row2">' +
+        '<div class="fld"><label>Process</label><input data-f="process" value="' + esc(c.process) + '" placeholder="e.g. Washed" maxlength="100"></div>' +
+        '<div class="fld"><label>Roast</label><select data-f="roast">' + opts + '</select></div>' +
+      '</div>' +
+      '<div class="row2">' +
+        '<div class="fld"><label>Price (USD)</label>' +
+          '<input data-f="price" type="number" min="0.01" step="0.01" value="' + esc(c.price) + '" placeholder="e.g. 19">' +
+          '<div class="fwarn" data-w="price">Must be greater than 0</div></div>' +
+        '<div class="fld"><label>Product URL (https)</label>' +
+          '<input data-f="product" value="' + esc(c.product) + '" placeholder="https://…">' +
+          '<div class="fwarn" data-w="product">Must start with https://</div></div>' +
+      '</div>' +
+      '<div class="fld"><label>Tasting notes (comma separated, max 12)</label>' +
+        '<input data-f="notes" value="' + esc(c.notes) + '" placeholder="chocolate, cherry, honey">' +
+        '<div class="fwarn" data-w="notes">Keep it to 12 notes or fewer</div></div>' +
+      '<div class="switch">' +
+        '<button data-d="approve">Approve</button><button data-d="hold">Hold</button><button data-d="reject">Reject</button>' +
+      '</div>';
+    grid.appendChild(card);
+
+    const img = card.querySelector('[data-thumb]');
+    card.querySelector('[data-f="image"]').addEventListener('input', e => {
+      const v = e.target.value.trim();
+      if (/^https:\/\//i.test(v)) { img.src = v; img.classList.remove('empty'); }
+      else { img.removeAttribute('src'); img.classList.add('empty'); }
+      validateSubmitted(card);
+    });
+    card.querySelectorAll('input, select').forEach(inp => inp.addEventListener('input', () => validateSubmitted(card)));
+    card.querySelectorAll('.switch button').forEach(btn => btn.addEventListener('click', () => {
+      submittedState[c.id] = btn.dataset.d;
+      card.classList.toggle('approve', btn.dataset.d === 'approve');
+      card.classList.toggle('reject', btn.dataset.d === 'reject');
+      card.querySelectorAll('.switch button').forEach(b => {
+        b.classList.toggle('on-approve', b === btn && btn.dataset.d === 'approve');
+        b.classList.toggle('on-reject', b === btn && btn.dataset.d === 'reject');
+      });
+      updateSubmittedBar($('actionbar'));
+    }));
+  }
+  updateSubmittedBar($('actionbar'));
+}
+
+const subVal = (card, f) => card.querySelector('[data-f="' + f + '"]').value.trim();
+const notesArr = s => s.split(',').map(x => x.trim()).filter(Boolean);
+
+function validateSubmitted(card){
+  const checks = {
+    image:   v => !v || /^https:\/\//i.test(v),
+    product: v => !v || /^https:\/\//i.test(v),
+    price:   v => !v || parseFloat(v) > 0,
+    notes:   v => notesArr(v).length <= 12,
+  };
+  let ok = true;
+  for (const [f, test] of Object.entries(checks)) {
+    const good = test(subVal(card, f));
+    card.querySelector('[data-f="' + f + '"]').classList.toggle('bad', !good);
+    const w = card.querySelector('[data-w="' + f + '"]'); if (w) w.classList.toggle('show', !good);
+    ok = ok && good;
+  }
+  return ok;
+}
+
+function updateSubmittedBar(bar){
+  if (activeTab !== 'submitted') return;
+  const vals = Object.values(submittedState);
+  const approve = vals.filter(v => v === 'approve').length, reject = vals.filter(v => v === 'reject').length;
+  bar.classList.toggle('show', approve + reject > 0);
+  $('actionSummary').textContent = approve + ' to approve · ' + reject + ' to reject';
+  const btn = $('actionBtn'); btn.disabled = false; btn.textContent = 'Submit ' + (approve + reject);
+  btn.onclick = submitDecisions;
+}
+
+// Diff each editable field vs the submitted value → only changed fields ship.
+async function submitDecisions(){
+  const data = cache.submitted || [];
+  const grid = $('subgrid');
+  const ids = [], rejects = [], updates = {};
+  let invalid = 0;
+  for (const c of data) {
+    const d = submittedState[c.id];
+    if (d === 'hold' || !d) continue;
+    if (d === 'reject') { rejects.push(c.id); continue; }
+    const card = grid.querySelector('.ecard[data-id="' + c.id + '"]');
+    if (!validateSubmitted(card)) { invalid++; continue; }
+    ids.push(c.id);
+    const patch = {};
+    const image = subVal(card,'image'), product = subVal(card,'product'), origin = subVal(card,'origin'),
+          process = subVal(card,'process'), roast = subVal(card,'roast'), price = subVal(card,'price'),
+          notes = subVal(card,'notes');
+    if (image !== c.image)     patch.image_url = image || null;
+    if (product !== c.product) patch.product_url = product || null;
+    if (origin !== c.origin)   patch.origin = origin;
+    if (process !== c.process) patch.process = process;
+    if (roast !== c.roast)     patch.roast_level = roast;
+    if (price !== String(c.price)) patch.price_min = price ? parseFloat(price) : null;
+    if (notes !== c.notes)     patch.roaster_notes = notesArr(notes);
+    if (Object.keys(patch).length) updates[c.id] = patch;
+  }
+  if (invalid) { toast(invalid + ' approved card(s) have an invalid field (red) — fix or set to Hold.', 'err'); return; }
+  if (!ids.length && !rejects.length) { toast('Nothing set to Approve or Reject.', 'err'); return; }
+  let msg = 'Approve ' + ids.length;
+  if (rejects.length) msg += ' and PERMANENTLY DELETE ' + rejects.length + ' rejected';
+  msg += '?';
+  if (!confirm(msg)) return;
+  const btn = $('actionBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const r = await api({ action:'approve_submitted', ids, updates, rejects });
+    toast('Published ' + r.published + (rejects.length ? ' · deleted ' + r.rejected : '') + '.', 'ok');
+    dirty.submitted = true; loadTab('submitted');
+  } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
+}
+
+// ---- Boot ------------------------------------------------------------------
+if (tokens()?.access_token) { showApp(''); setTab('staged'); }
+else showLogin();
+</script>
