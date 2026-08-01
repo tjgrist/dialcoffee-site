@@ -42,9 +42,11 @@
   .toprow h1 { font-size:16px } .toprow h1 span { color:var(--caramel) }
   .toprow .spacer { flex:1 }
   .who { color:var(--dim); font-size:12px }
-  .tabs { display:flex; gap:4px; margin-top:10px }
+  .tabs { display:flex; gap:4px; margin-top:10px; overflow-x:auto; -webkit-overflow-scrolling:touch;
+          scrollbar-width:none }
+  .tabs::-webkit-scrollbar { display:none }
   .tabs .tab { background:transparent; color:var(--dim); border:0; border-bottom:2px solid transparent;
-               border-radius:0; padding:8px 12px; font-weight:600; font-size:14px }
+               border-radius:0; padding:8px 12px; font-weight:600; font-size:14px; flex:none; white-space:nowrap }
   .tabs .tab.on { color:var(--ink); border-bottom-color:var(--caramel) }
   .tabs .tab .badge { color:var(--dim); font-weight:400; font-size:12px; margin-left:4px }
   .controls { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; padding:10px 0 12px; font-size:13px }
@@ -118,9 +120,11 @@
   .verdict label.off { opacity:.35; pointer-events:none }
   .subline { padding:0 18px 8px; color:var(--dim); font-size:12px }
 
-  /* Submitted editor cards (ported from build_submitted_triage.py). */
-  .submitted #subgrid { padding:16px 18px; display:grid;
-                        grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px }
+  /* Editor cards — submitted coffees + user-submitted gear. */
+  .editorgrid { padding:16px 18px; display:grid;
+                grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px }
+  .methods { display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:4px }
+  .methods label { display:flex; gap:5px; align-items:center; font-size:12px; color:var(--ink); cursor:pointer }
   .ecard { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px 16px }
   .ecard.approve { outline:2px solid var(--leaf) }
   .ecard.reject { outline:2px solid var(--red); opacity:.75 }
@@ -190,6 +194,8 @@
       <button class="tab on" data-tab="staged">Staged<span class="badge" id="badge-staged"></span></button>
       <button class="tab" data-tab="roasters">Roasters<span class="badge" id="badge-roasters"></span></button>
       <button class="tab" data-tab="submitted">Submitted<span class="badge" id="badge-submitted"></span></button>
+      <button class="tab" data-tab="grinders">Grinders<span class="badge" id="badge-grinders"></span></button>
+      <button class="tab" data-tab="brewers">Brewers<span class="badge" id="badge-brewers"></span></button>
     </div>
     <details class="ctrlpanel" id="staged-controls" style="display:none">
       <summary>Filters &amp; selection</summary>
@@ -221,6 +227,8 @@
     <div class="pane staged on" id="pane-staged"><div class="loading">Loading…</div></div>
     <div class="pane roasters" id="pane-roasters"><div class="loading">Loading…</div></div>
     <div class="pane submitted" id="pane-submitted"><div class="loading">Loading…</div></div>
+    <div class="pane" id="pane-grinders"><div class="loading">Loading…</div></div>
+    <div class="pane" id="pane-brewers"><div class="loading">Loading…</div></div>
   </main>
 
   <div id="actionbar">
@@ -311,7 +319,7 @@ $('logoutBtn').onclick = () => { clearTokens(); location.reload(); };
 // ---- Tabs ------------------------------------------------------------------
 let activeTab = 'staged';
 const cache = {};            // tab -> data
-const dirty = { staged:true, roasters:true, submitted:true };
+const dirty = { staged:true, roasters:true, submitted:true, grinders:true, brewers:true };
 
 function setTab(tab){
   activeTab = tab;
@@ -333,7 +341,9 @@ async function loadTab(tab){
     cache[tab] = data; dirty[tab] = false;
     if (tab === 'staged') renderStaged(data);
     else if (tab === 'roasters') renderRoasters(data);
-    else renderSubmitted(data);
+    else if (tab === 'submitted') renderSubmitted(data);
+    else if (tab === 'grinders') renderGrinders(data);
+    else renderBrewers(data);
   } catch (err) {
     pane.innerHTML = '<div class="empty-state">' + esc(err.message || 'Failed to load.') + '</div>';
   }
@@ -344,7 +354,9 @@ function updateActionBar(){
   const bar = $('actionbar');
   if (activeTab === 'staged')      updateStagedBar(bar);
   else if (activeTab === 'roasters') updateRoasterBar(bar);
-  else                              updateSubmittedBar(bar);
+  else if (activeTab === 'submitted') updateSubmittedBar(bar);
+  else if (activeTab === 'grinders') updateGearBar(bar, 'grinders');
+  else                              updateGearBar(bar, 'brewers');
 }
 
 // ============================================================================
@@ -592,7 +604,7 @@ function renderSubmitted(payload){
   $('badge-submitted').textContent = payload.length ? '· ' + payload.length : '';
   for (const k of Object.keys(submittedState)) delete submittedState[k];
   if (!payload.length) { pane.innerHTML = '<div class="empty-state">Nothing pending — no user submissions are waiting.</div>'; updateActionBar(); return; }
-  const grid = document.createElement('div'); grid.id = 'subgrid'; pane.appendChild(grid);
+  const grid = document.createElement('div'); grid.id = 'subgrid'; grid.className = 'editorgrid'; pane.appendChild(grid);
   for (const c of payload) {
     submittedState[c.id] = 'hold';
     const card = document.createElement('div');
@@ -722,6 +734,204 @@ async function submitDecisions(){
     const r = await api({ action:'approve_submitted', ids, updates, rejects });
     toast('Published ' + r.published + (rejects.length ? ' · deleted ' + r.rejected : '') + '.', 'ok');
     dirty.submitted = true; loadTab('submitted');
+  } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
+}
+
+// ============================================================================
+// GRINDERS / BREWERS TABS — user-submitted gear (name-only; operator enriches)
+// ============================================================================
+const BREW_METHODS = [
+  ['espresso','Espresso'], ['pour_over','Pour Over'], ['aeropress','AeroPress'],
+  ['french_press','French Press'], ['moka_pot','Moka Pot'], ['cold_brew','Cold Brew'],
+  ['drip','Drip'], ['siphon','Siphon'],
+];
+// id -> 'hold' | 'approve' | 'reject', one map per gear tab.
+const gearState = { grinders:{}, brewers:{} };
+
+function gearHead(c){
+  return '<div class="hd"><div><div class="nm">' + esc(c.name) + '</div>' +
+    '<div class="meta">by ' + esc(c.by || '—') + (c.when ? ' · ' + esc(c.when) : '') + '</div></div></div>';
+}
+function gearSwitch(){
+  return '<div class="switch"><button data-d="approve">Approve</button>' +
+    '<button data-d="hold">Hold</button><button data-d="reject">Reject</button></div>';
+}
+function wireGearCard(card, tab, id){
+  card.querySelectorAll('.switch button').forEach(btn => btn.addEventListener('click', () => {
+    gearState[tab][id] = btn.dataset.d;
+    card.classList.toggle('approve', btn.dataset.d === 'approve');
+    card.classList.toggle('reject', btn.dataset.d === 'reject');
+    card.querySelectorAll('.switch button').forEach(b => {
+      b.classList.toggle('on-approve', b === btn && btn.dataset.d === 'approve');
+      b.classList.toggle('on-reject', b === btn && btn.dataset.d === 'reject');
+    });
+    updateGearBar($('actionbar'), tab);
+  }));
+}
+
+function renderGrinders(payload){
+  const pane = $('pane-grinders'); pane.innerHTML = '';
+  $('badge-grinders').textContent = payload.length ? '· ' + payload.length : '';
+  gearState.grinders = {};
+  if (!payload.length) { pane.innerHTML = '<div class="empty-state">No pending grinder submissions.</div>'; updateActionBar(); return; }
+  const grid = document.createElement('div'); grid.id = 'grindergrid'; grid.className = 'editorgrid'; pane.appendChild(grid);
+  for (const c of payload) {
+    gearState.grinders[c.id] = 'hold';
+    const card = document.createElement('div'); card.className = 'ecard'; card.dataset.id = c.id;
+    const st = c.scale_type || '';
+    const opt = (v,l) => '<option value="' + v + '"' + (st === v ? ' selected' : '') + '>' + l + '</option>';
+    card.innerHTML = gearHead(c) +
+      '<div class="fld"><label>Name</label><input data-f="name" value="' + esc(c.name) + '" maxlength="120"></div>' +
+      '<div class="fld"><label>Scale type</label><select data-f="scale_type">' +
+        opt('','— none (name only) —') + opt('dial','Dial (numbered)') + opt('clicks','Clicks (hand grinder)') +
+      '</select><div class="sub" style="margin-top:4px">Leave as “none” to publish the name only; add a scale to power the dial-in coach.</div></div>' +
+      '<div class="scalefields" style="display:' + (st ? 'block' : 'none') + '">' +
+        '<div class="row2">' +
+          '<div class="fld"><label>Full min</label><input data-f="full_min" type="number" step="any" value="' + esc(c.full_min ?? '') + '"></div>' +
+          '<div class="fld"><label>Full max</label><input data-f="full_max" type="number" step="any" value="' + esc(c.full_max ?? '') + '"></div>' +
+        '</div><div class="row2">' +
+          '<div class="fld"><label>Espresso min</label><input data-f="espresso_min" type="number" step="any" value="' + esc(c.espresso_min ?? '') + '"></div>' +
+          '<div class="fld"><label>Espresso max</label><input data-f="espresso_max" type="number" step="any" value="' + esc(c.espresso_max ?? '') + '"></div>' +
+        '</div>' +
+        '<div class="fld stepfld" style="display:' + (st === 'dial' ? 'block' : 'none') + '"><label>Step size (dial)</label>' +
+          '<input data-f="step_size" type="number" step="any" min="0" value="' + esc(c.step_size ?? '') + '"></div>' +
+        '<div class="fwarn" data-w="scale">Need full min &lt; max, espresso within full range, and a positive step for dial.</div>' +
+      '</div>' + gearSwitch();
+    grid.appendChild(card);
+    const sel = card.querySelector('[data-f="scale_type"]');
+    sel.addEventListener('change', () => {
+      const v = sel.value;
+      card.querySelector('.scalefields').style.display = v ? 'block' : 'none';
+      card.querySelector('.stepfld').style.display = v === 'dial' ? 'block' : 'none';
+      validateGrinder(card);
+    });
+    card.querySelectorAll('input').forEach(i => i.addEventListener('input', () => validateGrinder(card)));
+    wireGearCard(card, 'grinders', c.id);
+  }
+  updateGearBar($('actionbar'), 'grinders');
+}
+
+function grinderScale(card){
+  const st = card.querySelector('[data-f="scale_type"]').value;
+  const g = f => { const v = card.querySelector('[data-f="' + f + '"]').value.trim(); return v === '' ? null : parseFloat(v); };
+  return { st, full_min:g('full_min'), full_max:g('full_max'),
+           espresso_min:g('espresso_min'), espresso_max:g('espresso_max'), step_size:g('step_size') };
+}
+// Mirror the grinders CHECK constraints (0024) so a bad scale can't be sent.
+function validateGrinder(card){
+  const s = grinderScale(card);
+  let ok = true;
+  if (s.st) {
+    const nums = [s.full_min, s.full_max, s.espresso_min, s.espresso_max];
+    ok = nums.every(n => n != null && isFinite(n))
+      && s.full_max > s.full_min
+      && s.espresso_min >= s.full_min && s.espresso_max <= s.full_max
+      && s.espresso_max > s.espresso_min
+      && (s.st !== 'dial' || (s.step_size != null && s.step_size > 0));
+  }
+  const w = card.querySelector('[data-w="scale"]'); if (w) w.classList.toggle('show', !ok);
+  return ok;
+}
+
+function renderBrewers(payload){
+  const pane = $('pane-brewers'); pane.innerHTML = '';
+  $('badge-brewers').textContent = payload.length ? '· ' + payload.length : '';
+  gearState.brewers = {};
+  if (!payload.length) { pane.innerHTML = '<div class="empty-state">No pending brewer submissions.</div>'; updateActionBar(); return; }
+  const grid = document.createElement('div'); grid.id = 'brewergrid'; grid.className = 'editorgrid'; pane.appendChild(grid);
+  for (const c of payload) {
+    gearState.brewers[c.id] = 'hold';
+    const card = document.createElement('div'); card.className = 'ecard'; card.dataset.id = c.id;
+    const has = new Set(c.methods || []);
+    const methods = BREW_METHODS.map(([v,l]) =>
+      '<label><input type="checkbox" data-m="' + v + '"' + (has.has(v) ? ' checked' : '') + '> ' + l + '</label>').join('');
+    card.innerHTML = gearHead(c) +
+      '<div class="fld"><label>Name</label><input data-f="name" value="' + esc(c.name) + '" maxlength="120"></div>' +
+      '<div class="row2">' +
+        '<div class="fld"><label>Brand</label><input data-f="brand" value="' + esc(c.brand) + '" maxlength="80" placeholder="optional"></div>' +
+        '<div class="fld"><label>Category</label><input data-f="category" value="' + esc(c.category) + '" maxlength="60" placeholder="e.g. Manual lever"></div>' +
+      '</div>' +
+      '<div class="fld"><label>Brew methods</label><div class="methods">' + methods + '</div>' +
+        '<div class="fwarn" data-w="methods">Pick at least one method.</div></div>' +
+      gearSwitch();
+    grid.appendChild(card);
+    card.querySelectorAll('input').forEach(i => i.addEventListener('input', () => validateBrewer(card)));
+    wireGearCard(card, 'brewers', c.id);
+  }
+  updateGearBar($('actionbar'), 'brewers');
+}
+
+const brewerMethods = card => [...card.querySelectorAll('[data-m]')].filter(x => x.checked).map(x => x.dataset.m);
+function validateBrewer(card){
+  const ok = brewerMethods(card).length > 0;
+  const w = card.querySelector('[data-w="methods"]'); if (w) w.classList.toggle('show', !ok);
+  return ok;
+}
+
+function updateGearBar(bar, tab){
+  if (activeTab !== tab) return;
+  const vals = Object.values(gearState[tab]);
+  const approve = vals.filter(v => v === 'approve').length, reject = vals.filter(v => v === 'reject').length;
+  bar.classList.toggle('show', approve + reject > 0);
+  $('actionSummary').textContent = approve + ' to approve · ' + reject + ' to reject';
+  const btn = $('actionBtn'); btn.disabled = false; btn.textContent = 'Submit ' + (approve + reject);
+  btn.onclick = () => submitGear(tab);
+}
+
+async function submitGear(tab){
+  const data = cache[tab] || [];
+  const grid = $(tab === 'grinders' ? 'grindergrid' : 'brewergrid');
+  const ids = [], rejects = [], updates = {};
+  let invalid = 0;
+  for (const c of data) {
+    const d = gearState[tab][c.id];
+    if (d === 'hold' || !d) continue;
+    if (d === 'reject') { rejects.push(c.id); continue; }
+    const card = grid.querySelector('.ecard[data-id="' + c.id + '"]');
+    if (tab === 'grinders') {
+      if (!validateGrinder(card)) { invalid++; continue; }
+      ids.push(c.id);
+      const patch = {};
+      const name = card.querySelector('[data-f="name"]').value.trim();
+      if (name && name !== c.name) patch.name = name;
+      const s = grinderScale(card);
+      if (s.st !== (c.scale_type || '')) patch.scale_type = s.st || null;
+      if (s.st) {
+        patch.scale_type = s.st;
+        patch.full_min = s.full_min; patch.full_max = s.full_max;
+        patch.espresso_min = s.espresso_min; patch.espresso_max = s.espresso_max;
+        patch.step_size = s.st === 'dial' ? s.step_size : null;
+      } else if ('scale_type' in patch) {
+        patch.full_min = null; patch.full_max = null;
+        patch.espresso_min = null; patch.espresso_max = null; patch.step_size = null;
+      }
+      if (Object.keys(patch).length) updates[c.id] = patch;
+    } else {
+      if (!validateBrewer(card)) { invalid++; continue; }
+      ids.push(c.id);
+      const patch = {};
+      const name = card.querySelector('[data-f="name"]').value.trim();
+      const brand = card.querySelector('[data-f="brand"]').value.trim();
+      const category = card.querySelector('[data-f="category"]').value.trim();
+      const methods = brewerMethods(card);
+      if (name && name !== c.name) patch.name = name;
+      if (brand !== c.brand) patch.brand = brand || null;
+      if (category !== c.category) patch.category = category || null;
+      if (methods.join(',') !== (c.methods || []).join(',')) patch.methods = methods;
+      if (Object.keys(patch).length) updates[c.id] = patch;
+    }
+  }
+  if (invalid) { toast(invalid + ' approved card(s) have an invalid field (red) — fix or set to Hold.', 'err'); return; }
+  if (!ids.length && !rejects.length) { toast('Nothing set to Approve or Reject.', 'err'); return; }
+  let msg = 'Approve ' + ids.length;
+  if (rejects.length) msg += ' and PERMANENTLY DELETE ' + rejects.length + ' rejected';
+  msg += '?';
+  if (!confirm(msg)) return;
+  const btn = $('actionBtn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const r = await api({ action: tab === 'grinders' ? 'approve_grinders' : 'approve_brewers', ids, updates, rejects });
+    toast('Published ' + r.published + (rejects.length ? ' · deleted ' + r.rejected : '') + '.', 'ok');
+    dirty[tab] = true; loadTab(tab);
   } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
 }
 
