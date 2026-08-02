@@ -101,9 +101,11 @@
 
   /* Staged cohort/lens visibility (body-class driven, ported from build_triage.py). */
   .staged.hideE .card.cE, .staged.hideU .card.cU, .staged.hideS .card.cS { display:none }
+  .staged.hideRL .card.rL, .staged.hideRM .card.rM, .staged.hideRD .card.rD, .staged.hideRO .card.rO { display:none }
   .staged.ratedOnly .card:not(.cR) { display:none }
   .staged.hideSold .card.cSO { display:none }
-  .card.pOFF { display:none }
+  .card.pOFF, .card.jOFF, .card.qOFF { display:none }
+  .rgrp { display:inline-flex; gap:8px; align-items:center; padding-left:8px; border-left:1px solid var(--line) }
   .card.eOFF { outline:2px solid var(--red) }
   .card.eOFF::after { content:"excluded"; position:absolute; top:6px; right:6px; background:var(--red);
                       color:#fff; font-size:10px; font-weight:700; padding:1px 7px; border-radius:99px }
@@ -205,8 +207,18 @@
         <label><input type="checkbox" id="cSeas" checked> seasonal <span class="sub" id="n-seas"></span></label>
         <label><input type="checkbox" id="cRated"> ★ rated only <span class="sub" id="n-rated"></span></label>
         <label><input type="checkbox" id="cStock" checked> hide sold-out <span class="sub" id="n-sold"></span></label>
+        <span class="rgrp">roast
+          <label><input type="checkbox" id="rL" checked> light</label>
+          <label><input type="checkbox" id="rM" checked> medium</label>
+          <label><input type="checkbox" id="rD" checked> dark</label>
+          <label><input type="checkbox" id="rO" checked> unknown</label>
+        </span>
         <label>≤ $<input type="number" id="maxPrice" min="1" step="1" placeholder="any" style="width:64px"></label>
-        <input type="search" id="q" placeholder="filter roasters…" style="width:180px">
+        <span class="rgrp">
+          <label><input type="checkbox" id="cJunk" checked> hide junk</label>
+          <input type="search" id="junk" title="Comma-separated terms matched against the coffee name — subscriptions, gift sets, merch, and other non-coffee SKUs that leak from feeds." value="subscription, gift card, gift set, gift box, bundle, sampler, sample pack, tasting set, tasting flight, merch, mug, tumbler, sticker, apparel, hoodie, t-shirt, sweatshirt, equipment, e-gift, voucher" style="width:200px">
+        </span>
+        <input type="search" id="q" placeholder="search roaster, coffee, origin…" style="width:200px">
         <button class="ghost" id="checkAll">check all</button>
         <button class="ghost" id="uncheckAll">uncheck all</button>
         <button class="ghost" id="expandSel">expand selected</button>
@@ -396,9 +408,10 @@ function renderStaged(payload){
     d._r = r;
     list.appendChild(d);
   }
-  for (const id of ['cEver','cUnk','cSeas','cRated','cStock']) $(id).onchange = applyStagedFilters;
+  for (const id of ['cEver','cUnk','cSeas','cRated','cStock','rL','rM','rD','rO','cJunk']) $(id).onchange = applyStagedFilters;
   $('q').oninput = applyStagedFilters;
   $('maxPrice').oninput = applyStagedFilters;
+  $('junk').oninput = applyStagedFilters;
   $('checkAll').onclick = () => { list.querySelectorAll('.inc').forEach(x => x.checked = true); updateStagedBar($('actionbar')); };
   $('uncheckAll').onclick = () => { list.querySelectorAll('.inc').forEach(x => x.checked = false); updateStagedBar($('actionbar')); };
   $('expandSel').onclick = () => {
@@ -418,9 +431,10 @@ function renderStaged(payload){
 function renderStagedGrid(d, r){
   const g = d.querySelector('.grid');
   g.innerHTML = r.items.map(it =>
-    '<div class="card c' + cohortOf(it) + (it.rating != null ? ' cR' : '') + (it.stock === false ? ' cSO' : '') +
+    '<div class="card c' + cohortOf(it) + ' r' + roastBucket(it) + (it.rating != null ? ' cR' : '') + (it.stock === false ? ' cSO' : '') +
         (stagedExcluded.has(it.id) ? ' eOFF' : '') + (stagedOverPrice(it) ? ' pOFF' : '') +
-        '" data-id="' + it.id + '" data-price="' + it.price + '">' +
+        '" data-id="' + it.id + '" data-price="' + it.price +
+        '" data-name="' + esc((it.name || '').toLowerCase()) + '" data-origin="' + esc((it.origin || '').toLowerCase()) + '">' +
       '<span class="tag ' + cohortOf(it) + '">' + COHORT_LABEL[cohortOf(it)] + '</span>' +
       (it.img ? '<img loading="lazy" src="' + esc(it.img) + '" alt="">' : '<div class="noimg">no image</div>') +
       '<div class="b">' +
@@ -459,43 +473,86 @@ async function toggleStagedExclude(card, id){
 }
 
 const stagedCohortsOn = () => ({ E:$('cEver').checked, U:$('cUnk').checked, S:$('cSeas').checked });
+const stagedRoastOn   = () => ({ L:$('rL').checked, M:$('rM').checked, D:$('rD').checked, O:$('rO').checked });
 const stagedRatedOnly = () => $('cRated').checked;
 const stagedHideSold  = () => $('cStock').checked;
 function stagedMaxPrice(){ const v = parseFloat($('maxPrice').value); return Number.isFinite(v) && v > 0 ? v : null; }
 const stagedOverPrice = i => { const mp = stagedMaxPrice(); return mp != null && i.price > mp; };
-const stagedPasses = (i, on) => on[cohortOf(i)] && (!stagedRatedOnly() || i.rating != null) &&
-  !stagedOverPrice(i) && !(stagedHideSold() && i.stock === false);
+
+// roast_level (light / medium_light / medium / medium_dark / dark, or "") →
+// four buckets: L(ight), M(edium), D(ark), O(ther/unknown). medium_light and
+// medium_dark fold into Light and Dark respectively.
+function roastBucket(it){
+  const r = (it.roast || '').toLowerCase();
+  if (!r) return 'O';
+  if (r.includes('light')) return 'L';
+  if (r.includes('dark'))  return 'D';
+  return 'M';
+}
+const junkTerms = () => $('junk').value.toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
+const termsHit  = (name, terms) => terms.some(t => name.includes(t));
+function itemMatchQ(i, q){
+  if (!q) return true;
+  return (i.name || '').toLowerCase().includes(q) || (i.origin || '').toLowerCase().includes(q);
+}
+
+// One DOM read of every filter, reused across all items (vs re-reading each
+// control per item). q matches roaster OR coffee name OR origin; junk hides
+// coffees whose name contains any operator term.
+function stagedCtx(){
+  return {
+    coh: stagedCohortsOn(), roast: stagedRoastOn(),
+    ratedOnly: stagedRatedOnly(), hideSold: stagedHideSold(),
+    maxPrice: stagedMaxPrice(),
+    junkOn: $('cJunk').checked, junkTerms: junkTerms(),
+    q: $('q').value.trim().toLowerCase(),
+  };
+}
+const stagedPasses = (i, c) => c.coh[cohortOf(i)] && c.roast[roastBucket(i)] &&
+  (!c.ratedOnly || i.rating != null) &&
+  !(c.maxPrice != null && i.price > c.maxPrice) &&
+  !(c.hideSold && i.stock === false) &&
+  !(c.junkOn && c.junkTerms.length && termsHit((i.name || '').toLowerCase(), c.junkTerms));
 
 function applyStagedFilters(){
   const pane = $('pane-staged'), list = $('staged-list'); if (!list) return;
-  const on = stagedCohortsOn();
-  pane.classList.toggle('hideE', !on.E);
-  pane.classList.toggle('hideU', !on.U);
-  pane.classList.toggle('hideS', !on.S);
-  pane.classList.toggle('ratedOnly', stagedRatedOnly());
-  pane.classList.toggle('hideSold', stagedHideSold());
-  const q = $('q').value.toLowerCase(), mp = stagedMaxPrice();
+  const c = stagedCtx();
+  pane.classList.toggle('hideE', !c.coh.E);
+  pane.classList.toggle('hideU', !c.coh.U);
+  pane.classList.toggle('hideS', !c.coh.S);
+  pane.classList.toggle('hideRL', !c.roast.L);
+  pane.classList.toggle('hideRM', !c.roast.M);
+  pane.classList.toggle('hideRD', !c.roast.D);
+  pane.classList.toggle('hideRO', !c.roast.O);
+  pane.classList.toggle('ratedOnly', c.ratedOnly);
+  pane.classList.toggle('hideSold', c.hideSold);
   for (const d of list.children) {
     const r = d._r;
-    const vis = r.items.filter(i => stagedPasses(i, on)).length;
+    const roasterHit = !c.q || d.dataset.name.includes(c.q);
+    const vis = r.items.filter(i => stagedPasses(i, c) && (roasterHit || itemMatchQ(i, c.q))).length;
     d.querySelector('.cnt').textContent = vis === r.items.length ? r.items.length + ' staged' : vis + ' shown of ' + r.items.length;
-    d.style.display = (vis > 0 && d.dataset.name.includes(q)) ? '' : 'none';
-    if (d.dataset.done) for (const cd of d.querySelectorAll('.card'))
-      cd.classList.toggle('pOFF', mp != null && parseFloat(cd.dataset.price) > mp);
+    d.style.display = vis > 0 ? '' : 'none';
+    if (d.dataset.done) for (const cd of d.querySelectorAll('.card')) {
+      cd.classList.toggle('pOFF', c.maxPrice != null && parseFloat(cd.dataset.price) > c.maxPrice);
+      cd.classList.toggle('jOFF', c.junkOn && c.junkTerms.length && termsHit(cd.dataset.name || '', c.junkTerms));
+      cd.classList.toggle('qOFF', !!c.q && !roasterHit &&
+        !(cd.dataset.name || '').includes(c.q) && !(cd.dataset.origin || '').includes(c.q));
+    }
   }
   updateStagedBar($('actionbar'));
 }
 
 // Ids that would be approved: visible + checked roasters, minus excluded cards,
-// constrained by the same passes() the local page used to keep the batch == screen.
+// constrained by the same passes()/search the screen uses to keep batch == screen.
 function stagedSelectedIds(){
   const list = $('staged-list'); if (!list) return [];
-  const on = stagedCohortsOn(); const ids = [];
+  const c = stagedCtx(); const ids = [];
   for (const d of list.children) {
     if (d.style.display === 'none') continue;
     if (!d.querySelector('.inc').checked) continue;
+    const roasterHit = !c.q || d.dataset.name.includes(c.q);
     for (const i of d._r.items)
-      if (!stagedExcluded.has(i.id) && stagedPasses(i, on)) ids.push(i.id);
+      if (!stagedExcluded.has(i.id) && stagedPasses(i, c) && (roasterHit || itemMatchQ(i, c.q))) ids.push(i.id);
   }
   return ids;
 }
