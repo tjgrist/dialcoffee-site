@@ -125,6 +125,15 @@
   .card.eOFF::after { content:"excluded"; position:absolute; top:6px; right:6px; background:var(--red);
                       color:#fff; font-size:10px; font-weight:700; padding:1px 7px; border-radius:99px }
 
+  /* Published tab — selection model for unpublishing. */
+  .published .card { cursor:pointer }
+  .published .card.sel { outline:2px solid var(--caramel) }
+  .published .card.sel::after { content:"selected"; position:absolute; top:6px; right:6px;
+    background:var(--caramel); color:#2b1a0c; font-size:10px; font-weight:700;
+    padding:1px 7px; border-radius:99px }
+  .published.hideE .card.cE, .published.hideU .card.cU, .published.hideS .card.cS { display:none }
+  .published.hideRL .card.rL, .published.hideRM .card.rM, .published.hideRD .card.rD, .published.hideRO .card.rO { display:none }
+
   /* Roaster verdict switch (ported from build_roaster_triage.py). */
   .verdict { margin-left:auto; display:flex; gap:2px; border:1px solid var(--line);
              border-radius:99px; overflow:hidden; font-size:12px }
@@ -214,6 +223,7 @@
       <button class="tab" data-tab="submitted">Submitted<span class="badge" id="badge-submitted"></span></button>
       <button class="tab" data-tab="grinders">Grinders<span class="badge" id="badge-grinders"></span></button>
       <button class="tab" data-tab="brewers">Brewers<span class="badge" id="badge-brewers"></span></button>
+      <button class="tab" data-tab="published">Published<span class="badge" id="badge-published"></span></button>
     </div>
     <details class="ctrlpanel" id="staged-controls" style="display:none">
       <summary>Filters &amp; selection</summary>
@@ -251,6 +261,25 @@
         <button class="ghost" id="rCollapseAll">collapse all</button>
       </div>
     </details>
+    <details class="ctrlpanel" id="published-controls" style="display:none">
+      <summary>Filters &amp; selection</summary>
+      <div class="controls">
+        <label><input type="checkbox" id="pSoldOnly" checked> sold-out only <span class="sub" id="pn-sold"></span></label>
+        <label><input type="checkbox" id="pEver" checked> evergreen <span class="sub" id="pn-ever"></span></label>
+        <label><input type="checkbox" id="pUnk" checked> unclassified <span class="sub" id="pn-unk"></span></label>
+        <label><input type="checkbox" id="pSeas" checked> seasonal <span class="sub" id="pn-seas"></span></label>
+        <span class="rgrp">roast
+          <label><input type="checkbox" id="prL" checked> light</label>
+          <label><input type="checkbox" id="prM" checked> medium</label>
+          <label><input type="checkbox" id="prD" checked> dark</label>
+          <label><input type="checkbox" id="prO" checked> unknown</label>
+        </span>
+        <input type="search" id="pq" placeholder="search roaster, coffee, origin…" style="width:200px">
+        <button class="ghost" id="pSelectAll">select all visible</button>
+        <button class="ghost" id="pDeselectAll">deselect all</button>
+        <button class="ghost" id="pCollapseAll">collapse all</button>
+      </div>
+    </details>
   </header>
 
   <main>
@@ -259,6 +288,7 @@
     <div class="pane submitted" id="pane-submitted"><div class="loading">Loading…</div></div>
     <div class="pane" id="pane-grinders"><div class="loading">Loading…</div></div>
     <div class="pane" id="pane-brewers"><div class="loading">Loading…</div></div>
+    <div class="pane published" id="pane-published"><div class="loading">Loading…</div></div>
   </main>
 
   <div id="actionbar">
@@ -357,7 +387,7 @@ $('logoutBtn').onclick = () => { clearTokens(); location.reload(); };
 // ---- Tabs ------------------------------------------------------------------
 let activeTab = 'staged';
 const cache = {};            // tab -> data
-const dirty = { staged:true, roasters:true, submitted:true, grinders:true, brewers:true };
+const dirty = { staged:true, roasters:true, submitted:true, grinders:true, brewers:true, published:true };
 
 function setTab(tab){
   activeTab = tab;
@@ -365,6 +395,7 @@ function setTab(tab){
   for (const p of document.querySelectorAll('.pane')) p.classList.toggle('on', p.id === 'pane-' + tab);
   $('staged-controls').style.display = tab === 'staged' ? '' : 'none';
   $('roasters-controls').style.display = tab === 'roasters' ? '' : 'none';
+  $('published-controls').style.display = tab === 'published' ? '' : 'none';
   updateActionBar();
   if (dirty[tab]) loadTab(tab);
 }
@@ -379,8 +410,13 @@ async function loadCounts(){
   try {
     const c = await api({ action:'counts' });
     for (const [tab, n] of Object.entries(c)) {
+      if (tab === 'publishedSold') continue;
       const el = $('badge-' + tab);
       if (el) el.textContent = n ? '· ' + n.toLocaleString() : '';
+    }
+    if (c.publishedSold) {
+      const el = $('badge-published');
+      if (el) el.textContent = '· ' + c.published.toLocaleString() + (c.publishedSold ? ' (' + c.publishedSold.toLocaleString() + ' sold out)' : '');
     }
   } catch {}
 }
@@ -394,12 +430,15 @@ async function loadTab(tab){
     // the request rather than being applied to rows already downloaded.
     const data = await api(tab === 'staged'
       ? { action:'staged', sold_out: !stagedHideSold() }
+      : tab === 'published'
+      ? { action:'published', sold_out_only: publishedSoldOnly() }
       : { action: tab });
     cache[tab] = data; dirty[tab] = false;
     if (tab === 'staged') renderStaged(data);
     else if (tab === 'roasters') renderRoasters(data);
     else if (tab === 'submitted') renderSubmitted(data);
     else if (tab === 'grinders') renderGrinders(data);
+    else if (tab === 'published') renderPublished(data);
     else renderBrewers(data);
   } catch (err) {
     pane.innerHTML = '<div class="empty-state">' + esc(err.message || 'Failed to load.') + '</div>';
@@ -413,6 +452,7 @@ function updateActionBar(){
   else if (activeTab === 'roasters') updateRoasterBar(bar);
   else if (activeTab === 'submitted') updateSubmittedBar(bar);
   else if (activeTab === 'grinders') updateGearBar(bar, 'grinders');
+  else if (activeTab === 'published') updatePublishedBar(bar);
   else                              updateGearBar(bar, 'brewers');
 }
 
@@ -535,7 +575,8 @@ async function toggleStagedExclude(card, id){
 // session) so they survive the browser being closed; the search box is
 // deliberately excluded — that one IS meant to be transient.
 const PREFS = 'dc_triage_prefs';
-const PREF_CHECKS = ['cEver','cUnk','cSeas','cRated','cStock','rL','rM','rD','rO','cJunk'];
+const PREF_CHECKS = ['cEver','cUnk','cSeas','cRated','cStock','rL','rM','rD','rO','cJunk',
+                     'pSoldOnly','pEver','pUnk','pSeas','prL','prM','prD','prO'];
 const PREF_TEXT = ['junk','maxPrice'];
 
 function savePrefs(){
@@ -741,6 +782,197 @@ $('undoBtn').onclick = async () => {
     toast(err.message, 'err');
   } finally { btn.disabled = false; }
 };
+
+// ============================================================================
+// PUBLISHED TAB — browse/clean up the live auto-seeded catalog
+// ============================================================================
+const publishedSelected = new Set();
+function publishedSoldOnly(){ return $('pSoldOnly').checked; }
+
+function renderPublished(payload){
+  const pane = $('pane-published');
+  pane.className = 'pane published on';
+  publishedSelected.clear();
+  const c = payload.counts;
+  $('badge-published').textContent = c.total ? '· ' + c.total.toLocaleString() : '';
+  $('pn-ever').textContent = '(' + c.ever.toLocaleString() + ')';
+  $('pn-unk').textContent = '(' + c.unk.toLocaleString() + ')';
+  $('pn-seas').textContent = '(' + c.seas.toLocaleString() + ')';
+  $('pn-sold').textContent = '(' + c.sold.toLocaleString() + ')';
+
+  pane.innerHTML = '';
+  if (!payload.roasters.length) {
+    pane.innerHTML = '<div class="empty-state">No published coffees' +
+      (c.soldOutOnly ? ' marked sold-out' : '') + '.</div>';
+    updateActionBar(); return;
+  }
+  const list = document.createElement('div'); list.id = 'published-list'; pane.appendChild(list);
+  for (const r of payload.roasters) {
+    const d = document.createElement('details');
+    d.dataset.name = r.name.toLowerCase();
+    const ever = r.items.filter(i => i.ever === true).length;
+    const sold = r.items.filter(i => i.stock === false).length;
+    d.innerHTML = '<summary>' +
+        '<input type="checkbox" class="pinc" onclick="event.stopPropagation()">' +
+        '<span class="n">' + esc(r.name) + '</span>' +
+        '<span class="chip cnt">' + r.items.length + ' published</span>' +
+        '<span class="chip">' + ever + ' evergreen</span>' +
+        (sold ? '<span class="chip warn">' + sold + ' sold out</span>' : '') +
+      '</summary><div class="grid"></div>';
+    d.addEventListener('toggle', () => {
+      if (d.open && !d.dataset.done) { renderPublishedGrid(d, r); d.dataset.done = 1; }
+    });
+    d._r = r;
+    list.appendChild(d);
+  }
+  for (const id of ['pEver','pUnk','pSeas','prL','prM','prD','prO']) $(id).onchange = applyPublishedFilters;
+  $('pSoldOnly').onchange = () => { savePrefs(); dirty.published = true; loadTab('published'); };
+  $('pq').oninput = applyPublishedFilters;
+  $('pSelectAll').onclick = () => selectPublished(true);
+  $('pDeselectAll').onclick = () => selectPublished(false);
+  $('pCollapseAll').onclick = () => { for (const d of list.children) d.open = false; };
+  list.addEventListener('change', e => {
+    if (!e.target.classList.contains('pinc')) return;
+    const d = e.target.closest('details');
+    if (d && d.dataset.done) {
+      const checked = e.target.checked;
+      for (const card of d.querySelectorAll('.card')) {
+        if (card.style.display === 'none') continue;
+        if (checked) publishedSelected.add(card.dataset.id);
+        else publishedSelected.delete(card.dataset.id);
+        card.classList.toggle('sel', checked);
+      }
+    }
+    updatePublishedBar($('actionbar'));
+  });
+
+  [...list.children].slice(-6).forEach(d => d.open = true);
+  applyPublishedFilters();
+}
+
+function renderPublishedGrid(d, r){
+  const g = d.querySelector('.grid');
+  g.innerHTML = r.items.map(it =>
+    '<div class="card c' + cohortOf(it) + ' r' + roastBucket(it) +
+        (it.rating != null ? ' cR' : '') + (it.stock === false ? ' cSO' : '') +
+        (publishedSelected.has(it.id) ? ' sel' : '') +
+        '" data-id="' + it.id + '" data-price="' + it.price +
+        '" data-name="' + esc((it.name || '').toLowerCase()) + '" data-origin="' + esc((it.origin || '').toLowerCase()) + '">' +
+      '<span class="tag ' + cohortOf(it) + '">' + COHORT_LABEL[cohortOf(it)] + '</span>' +
+      (it.img ? '<img loading="lazy" src="' + esc(it.img) + '" alt="" onerror="imgFail(this)">'
+              : '<div class="noimg">no image</div>') +
+      '<div class="b">' +
+        '<div class="t">' + esc(it.name) + '</div>' +
+        '<div class="m">' + (it.stock === false ? '<span class="so">sold out</span> · ' : '') +
+          (it.price != null ? '$' + it.price : '') +
+          (it.origin ? ' · ' + esc(it.origin) : '') + (it.roast ? ' · ' + esc(it.roast) : '') + '</div>' +
+        (it.rating != null ? '<div class="r">★ ' + it.rating + ' × ' + it.rcount + '</div>' : '') +
+        (it.notes ? '<div class="notes">' + esc(it.notes) + '</div>' : '') +
+        (it.url ? '<a href="' + esc(it.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">product page ↗</a>' : '') +
+      '</div></div>').join('');
+  g.addEventListener('click', e => {
+    if (e.target.tagName === 'A') return;
+    const card = e.target.closest('.card'); if (!card) return;
+    const id = card.dataset.id;
+    if (publishedSelected.has(id)) { publishedSelected.delete(id); card.classList.remove('sel'); }
+    else { publishedSelected.add(id); card.classList.add('sel'); }
+    updatePublishedBar($('actionbar'));
+  });
+}
+
+function selectPublished(sel){
+  const list = $('published-list'); if (!list) return;
+  for (const d of list.children) {
+    if (d.style.display === 'none') continue;
+    if (d.dataset.done) {
+      for (const card of d.querySelectorAll('.card')) {
+        if (card.style.display === 'none') continue;
+        if (sel) publishedSelected.add(card.dataset.id);
+        else publishedSelected.delete(card.dataset.id);
+        card.classList.toggle('sel', sel);
+      }
+    } else if (sel) {
+      for (const i of d._r.items) publishedSelected.add(i.id);
+    } else {
+      for (const i of d._r.items) publishedSelected.delete(i.id);
+    }
+    const cb = d.querySelector('.pinc'); if (cb) cb.checked = sel;
+  }
+  updatePublishedBar($('actionbar'));
+}
+
+function publishedCtx(){
+  return {
+    coh: { E:$('pEver').checked, U:$('pUnk').checked, S:$('pSeas').checked },
+    roast: { L:$('prL').checked, M:$('prM').checked, D:$('prD').checked, O:$('prO').checked },
+    q: $('pq').value.trim().toLowerCase(),
+  };
+}
+
+function applyPublishedFilters(){
+  const pane = $('pane-published'), list = $('published-list'); if (!list) return;
+  const c = publishedCtx();
+  pane.classList.toggle('hideE', !c.coh.E);
+  pane.classList.toggle('hideU', !c.coh.U);
+  pane.classList.toggle('hideS', !c.coh.S);
+  pane.classList.toggle('hideRL', !c.roast.L);
+  pane.classList.toggle('hideRM', !c.roast.M);
+  pane.classList.toggle('hideRD', !c.roast.D);
+  pane.classList.toggle('hideRO', !c.roast.O);
+  for (const d of list.children) {
+    const r = d._r;
+    const roasterHit = !c.q || d.dataset.name.includes(c.q);
+    const passes = i => c.coh[cohortOf(i)] && c.roast[roastBucket(i)] &&
+      (roasterHit || itemMatchQ(i, c.q));
+    const vis = r.items.filter(passes).length;
+    d.querySelector('.cnt').textContent = vis === r.items.length
+      ? r.items.length + ' published' : vis + ' shown of ' + r.items.length;
+    d.style.display = vis > 0 ? '' : 'none';
+    if (d.dataset.done) for (const cd of d.querySelectorAll('.card')) {
+      cd.classList.toggle('qOFF', !!c.q && !roasterHit &&
+        !(cd.dataset.name || '').includes(c.q) && !(cd.dataset.origin || '').includes(c.q));
+    }
+  }
+  savePrefs();
+  updatePublishedBar($('actionbar'));
+}
+
+function updatePublishedBar(bar){
+  if (activeTab !== 'published') return;
+  const n = publishedSelected.size;
+  bar.classList.toggle('show', n > 0);
+  $('actionSummary').textContent = n + ' coffee' + (n === 1 ? '' : 's') + ' selected to unpublish';
+  const btn = $('actionBtn'); btn.disabled = false; btn.textContent = 'Unpublish ' + n;
+  btn.onclick = () => unpublishSelected([...publishedSelected]);
+}
+
+function unpublishBreakdown(ids){
+  const list = $('published-list'); if (!list) return '';
+  const want = new Set(ids), byRoaster = new Map();
+  for (const d of list.children)
+    for (const i of d._r.items)
+      if (want.has(i.id)) byRoaster.set(d._r.name, (byRoaster.get(d._r.name) || 0) + 1);
+  const sorted = [...byRoaster.entries()].sort((a, b) => b[1] - a[1]);
+  const head = sorted.slice(0, 6).map(([n, c]) => '  ' + n + ' (' + c + ')').join('\n');
+  return '\n\n' + sorted.length + ' roaster' + (sorted.length === 1 ? '' : 's') + ':\n' + head +
+         (sorted.length > 6 ? '\n  …and ' + (sorted.length - 6) + ' more' : '');
+}
+
+async function unpublishSelected(ids){
+  if (!ids.length) return;
+  if (!confirm('Unpublish ' + ids.length + ' coffee' + (ids.length === 1 ? '' : 's') +
+               '? They return to the staged queue for review.' +
+               unpublishBreakdown(ids))) return;
+  const btn = $('actionBtn'); btn.disabled = true; btn.textContent = 'Unpublishing…';
+  try {
+    const r = await api({ action:'unpublish_staged', ids });
+    const short = (r.requested || ids.length) - r.unpublished;
+    toast('Unpublished ' + r.unpublished + ' coffee' + (r.unpublished === 1 ? '' : 's') +
+          (short > 0 ? ' · ' + short + ' skipped (already hidden)' : '') + '.',
+          short > 0 ? 'err' : 'ok');
+    dirty.published = true; dirty.staged = true; loadTab('published'); loadCounts();
+  } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
+}
 
 // ============================================================================
 // ROASTERS TAB — ported from tools/triage/build_roaster_triage.py
