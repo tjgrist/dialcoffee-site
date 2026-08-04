@@ -98,6 +98,13 @@
   .card .notes { color:var(--dim); font-size:11px; margin-top:2px; display:-webkit-box;
                  -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden }
   .card a { text-decoration:none; font-size:11px }
+  /* Photo override: a small ✎ pinned to the image's bottom-right. stopPropagation
+     in the handler keeps a tap here from toggling the card's exclude state. */
+  .card .imgwrap { position:relative }
+  .card .setimg { position:absolute; right:5px; bottom:5px; font-size:12px; line-height:1; cursor:pointer;
+                  background:color-mix(in srgb, var(--bg) 80%, transparent); color:var(--ink);
+                  border:1px solid var(--line); border-radius:6px; padding:4px 6px; z-index:2 }
+  .card .setimg.pin { color:var(--caramel); border-color:var(--caramel) }
   .card .so { color:var(--red); font-weight:700; font-size:10px; text-transform:uppercase }
   .card .dupe { color:var(--caramel); font-size:10px; font-weight:600; margin-top:2px;
                 display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }
@@ -529,8 +536,14 @@ function renderStagedGrid(d, r){
       '<span class="tag ' + cohortOf(it) + '">' + COHORT_LABEL[cohortOf(it)] + '</span>' +
       // A dead image URL used to render as a blank square indistinguishable
       // from a dark photo; swap it for the same placeholder a missing URL gets.
-      (it.img ? '<img loading="lazy" src="' + esc(it.img) + '" alt="" onerror="imgFail(this)">'
-              : '<div class="noimg">no image</div>') +
+      // The ✎ opens the manual photo override (set_image); 📌 = already pinned.
+      '<div class="imgwrap">' +
+        (it.img ? '<img loading="lazy" src="' + esc(it.img) + '" alt="" onerror="imgFail(this)">'
+                : '<div class="noimg">no image</div>') +
+        '<button type="button" class="setimg' + (it.locked ? ' pin' : '') +
+          '" title="Set photo URL" onclick="editStagedPhoto(event, this)">' +
+          (it.locked ? '📌' : '✎') + '</button>' +
+      '</div>' +
       '<div class="b">' +
         '<div class="t">' + esc(it.name) + '</div>' +
         (it.dupe ? '<div class="dupe">possible dupe of “' + esc(it.dupe) + '”</div>' : '') +
@@ -564,6 +577,44 @@ async function toggleStagedExclude(card, id){
     card.classList.toggle('eOFF', !excluding);
     updateStagedBar($('actionbar'));
     toast(err.message || 'Could not save exclusion.', 'err');
+  }
+}
+
+// Manual photo override. The seeder's bag-photo picker (heuristic + vision) is
+// right the vast majority of the time, but some roasters ship no clean front
+// (illustration-only catalogs, side/back-only shots), so the operator gets the
+// last word. Setting a URL pins it (image_locked) so the next seed run keeps it;
+// a blank input reverts to auto-pick. Updates the card's image in place.
+async function editStagedPhoto(ev, btn){
+  ev.stopPropagation();               // don't toggle the card's exclude state
+  const card = btn.closest('.card'); if (!card) return;
+  const id = card.dataset.id;
+  const wrap = card.querySelector('.imgwrap');
+  const cur = wrap.querySelector('img');
+  const now = cur ? cur.getAttribute('src') : '';
+  const input = prompt('Image URL for this coffee\n(blank = revert to the auto-picked photo):', now || '');
+  if (input === null) return;         // cancelled
+  const url = input.trim();
+  const clear = url === '';
+  if (!clear && !/^https:\/\/\S+$/i.test(url)) { toast('Enter a valid https image URL.', 'err'); return; }
+  btn.disabled = true;
+  try {
+    await api({ action:'set_image', id, ...(clear ? { clear:true } : { image_url:url }) });
+    if (clear) {
+      btn.classList.remove('pin'); btn.textContent = '✎';
+      toast('Reverted — the next scrape will re-pick this photo.', 'ok');
+    } else {
+      // Swap the image in place (replacing a placeholder if there was no photo).
+      const img = document.createElement('img');
+      img.loading = 'lazy'; img.alt = ''; img.setAttribute('onerror', 'imgFail(this)'); img.src = url;
+      (cur || wrap.querySelector('.noimg')).replaceWith(img);
+      btn.classList.add('pin'); btn.textContent = '📌';
+      toast('Photo updated and pinned.', 'ok');
+    }
+  } catch (err) {
+    toast(err.message || 'Could not update the photo.', 'err');
+  } finally {
+    btn.disabled = false;
   }
 }
 
