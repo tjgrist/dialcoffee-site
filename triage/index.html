@@ -17,6 +17,10 @@
   button.ghost { background:transparent; color:var(--caramel); border:1px solid var(--caramel) }
   button:disabled { opacity:.4; cursor:default }
   input, select { font:13px inherit }
+  /* Bigger hit targets — these are tapped hundreds of times per review pass on
+     a phone, where a default 13px box is a miss waiting to happen. */
+  input[type=checkbox], input[type=radio] { width:18px; height:18px; accent-color:var(--caramel) }
+  summary .inc { width:22px; height:22px; flex:none }
   input[type=search], input[type=number], input[type=email], input[type=password] {
     background:var(--card); border:1px solid var(--line); color:var(--ink);
     border-radius:8px; padding:7px 10px }
@@ -95,6 +99,17 @@
                  -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden }
   .card a { text-decoration:none; font-size:11px }
   .card .so { color:var(--red); font-weight:700; font-size:10px; text-transform:uppercase }
+  .card .dupe { color:var(--caramel); font-size:10px; font-weight:600; margin-top:2px;
+                display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }
+  .card.cD { border-color:var(--caramel) }
+
+  /* Rotation health strip at the top of the Roasters tab. */
+  .rotation { background:var(--card); border:1px solid var(--line); border-left:3px solid var(--leaf);
+              border-radius:10px; margin:12px 18px; padding:10px 12px }
+  .rotation.warn { border-left-color:var(--red) }
+  .rotation .rhead { font-size:13px }
+  .rotation .bad { color:var(--red); font-weight:600 }
+  .rotation .subline { padding:6px 0 0 }
   .tag { position:absolute; top:6px; left:6px; font-size:10px; font-weight:700; padding:1px 7px;
          border-radius:99px; background:#0008; color:var(--dim) }
   .tag.E { color:var(--leaf) } .tag.S { color:var(--red) }
@@ -189,6 +204,7 @@
       <h1>Dial <span>Coffee</span> triage</h1>
       <div class="spacer"></div>
       <span class="who" id="who"></span>
+      <button class="ghost" id="undoBtn" style="display:none">Undo publish</button>
       <button class="ghost" id="refreshBtn">Refresh</button>
       <button class="ghost" id="logoutBtn">Sign out</button>
     </div>
@@ -217,7 +233,9 @@
         <span class="rgrp">
           <label><input type="checkbox" id="cJunk" checked> hide junk</label>
           <input type="search" id="junk" title="Comma-separated terms matched against the coffee name — subscriptions, gift sets, merch, and other non-coffee SKUs that leak from feeds." value="subscription, gift card, gift set, gift box, bundle, sampler, sample pack, tasting set, tasting flight, merch, mug, tumbler, sticker, apparel, hoodie, t-shirt, sweatshirt, equipment, e-gift, voucher" style="width:200px">
+          <button class="ghost" id="excludeJunk" disabled>exclude junk</button>
         </span>
+        <span class="sub" id="n-dupes"></span>
         <input type="search" id="q" placeholder="search roaster, coffee, origin…" style="width:200px">
         <button class="ghost" id="checkAll">check all</button>
         <button class="ghost" id="uncheckAll">uncheck all</button>
@@ -263,6 +281,13 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function cohortOf(it){ return it.ever === true ? 'E' : (it.ever === false ? 'S' : 'U'); }
+// A roaster CDN that 404s left a blank square that read as a dark photo. Swap
+// in the same placeholder a missing URL gets, so image quality is judgeable.
+function imgFail(img){
+  const d = document.createElement('div');
+  d.className = 'noimg'; d.textContent = 'image failed';
+  img.replaceWith(d);
+}
 const $ = id => document.getElementById(id);
 
 // ---- Token store + API wrapper ---------------------------------------------
@@ -321,6 +346,7 @@ $('loginForm').addEventListener('submit', async (e) => {
   try {
     const t = await api({ action:'login', email, password });
     saveTokens(t); showApp(email);
+    loadCounts();
     loadTab('staged');
   } catch (err) {
     $('loginErr').textContent = err.message || 'Sign-in failed.';
@@ -345,11 +371,30 @@ function setTab(tab){
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 $('refreshBtn').onclick = () => { dirty[activeTab] = true; loadTab(activeTab); };
 
+// Fill every tab badge up front. Each render still sets its own badge exactly,
+// but without this a queue you haven't opened shows no count at all and work
+// sits unnoticed behind an unvisited tab. Counts-only, so it's cheap; a failure
+// is silent because it's an affordance, not the data.
+async function loadCounts(){
+  try {
+    const c = await api({ action:'counts' });
+    for (const [tab, n] of Object.entries(c)) {
+      const el = $('badge-' + tab);
+      if (el) el.textContent = n ? '· ' + n.toLocaleString() : '';
+    }
+  } catch {}
+}
+
 async function loadTab(tab){
   const pane = $('pane-' + tab);
   pane.innerHTML = '<div class="loading">Loading…</div>';
   try {
-    const data = await api({ action: tab });
+    // Sold-out staged rows are held back server-side (they're the bulk of the
+    // queue and the default lens hides them), so the lens has to travel with
+    // the request rather than being applied to rows already downloaded.
+    const data = await api(tab === 'staged'
+      ? { action:'staged', sold_out: !stagedHideSold() }
+      : { action: tab });
     cache[tab] = data; dirty[tab] = false;
     if (tab === 'staged') renderStaged(data);
     else if (tab === 'roasters') renderRoasters(data);
@@ -387,6 +432,7 @@ function renderStaged(payload){
   $('n-seas').textContent = '(' + c.seas.toLocaleString() + ')';
   $('n-rated').textContent = '(' + c.rated.toLocaleString() + ')';
   $('n-sold').textContent = '(' + c.sold.toLocaleString() + ')';
+  $('n-dupes').textContent = c.dupes ? c.dupes.toLocaleString() + ' possible dupe' + (c.dupes === 1 ? '' : 's') : '';
 
   pane.innerHTML = '';
   if (!payload.roasters.length) { pane.innerHTML = '<div class="empty-state">Nothing staged — the queue is clear.</div>'; updateActionBar(); return; }
@@ -408,7 +454,11 @@ function renderStaged(payload){
     d._r = r;
     list.appendChild(d);
   }
-  for (const id of ['cEver','cUnk','cSeas','cRated','cStock','rL','rM','rD','rO','cJunk']) $(id).onchange = applyStagedFilters;
+  for (const id of ['cEver','cUnk','cSeas','cRated','rL','rM','rD','rO','cJunk']) $(id).onchange = applyStagedFilters;
+  // Sold-out is the one lens the server applies, so toggling it refetches
+  // rather than re-filtering rows that aren't on the page.
+  $('cStock').onchange = () => { savePrefs(); dirty.staged = true; loadTab('staged'); };
+  $('excludeJunk').onclick = excludeJunk;
   $('q').oninput = applyStagedFilters;
   $('maxPrice').oninput = applyStagedFilters;
   $('junk').oninput = applyStagedFilters;
@@ -432,13 +482,18 @@ function renderStagedGrid(d, r){
   const g = d.querySelector('.grid');
   g.innerHTML = r.items.map(it =>
     '<div class="card c' + cohortOf(it) + ' r' + roastBucket(it) + (it.rating != null ? ' cR' : '') + (it.stock === false ? ' cSO' : '') +
+        (it.dupe ? ' cD' : '') +
         (stagedExcluded.has(it.id) ? ' eOFF' : '') + (stagedOverPrice(it) ? ' pOFF' : '') +
         '" data-id="' + it.id + '" data-price="' + it.price +
         '" data-name="' + esc((it.name || '').toLowerCase()) + '" data-origin="' + esc((it.origin || '').toLowerCase()) + '">' +
       '<span class="tag ' + cohortOf(it) + '">' + COHORT_LABEL[cohortOf(it)] + '</span>' +
-      (it.img ? '<img loading="lazy" src="' + esc(it.img) + '" alt="">' : '<div class="noimg">no image</div>') +
+      // A dead image URL used to render as a blank square indistinguishable
+      // from a dark photo; swap it for the same placeholder a missing URL gets.
+      (it.img ? '<img loading="lazy" src="' + esc(it.img) + '" alt="" onerror="imgFail(this)">'
+              : '<div class="noimg">no image</div>') +
       '<div class="b">' +
         '<div class="t">' + esc(it.name) + '</div>' +
+        (it.dupe ? '<div class="dupe">possible dupe of “' + esc(it.dupe) + '”</div>' : '') +
         '<div class="m">' + (it.stock === false ? '<span class="so">sold out</span> · ' : '') + '$' + it.price +
           (it.origin ? ' · ' + esc(it.origin) : '') + (it.roast ? ' · ' + esc(it.roast) : '') + '</div>' +
         (it.rating != null ? '<div class="r">★ ' + it.rating + ' × ' + it.rcount + '</div>' : '') +
@@ -470,6 +525,31 @@ async function toggleStagedExclude(card, id){
     updateStagedBar($('actionbar'));
     toast(err.message || 'Could not save exclusion.', 'err');
   }
+}
+
+// ---- Filter prefs ----------------------------------------------------------
+// The lenses, the price ceiling, and above all the junk-term list are the
+// operator's accumulated knowledge of what these feeds emit. They used to reset
+// to the baked-in defaults on every load, so any term added while reviewing was
+// lost and the same junk had to be re-filtered next session. localStorage (not
+// session) so they survive the browser being closed; the search box is
+// deliberately excluded — that one IS meant to be transient.
+const PREFS = 'dc_triage_prefs';
+const PREF_CHECKS = ['cEver','cUnk','cSeas','cRated','cStock','rL','rM','rD','rO','cJunk'];
+const PREF_TEXT = ['junk','maxPrice'];
+
+function savePrefs(){
+  const p = {};
+  for (const id of PREF_CHECKS) p[id] = $(id).checked;
+  for (const id of PREF_TEXT) p[id] = $(id).value;
+  try { localStorage.setItem(PREFS, JSON.stringify(p)); } catch {}
+}
+
+function loadPrefs(){
+  let p; try { p = JSON.parse(localStorage.getItem(PREFS) || 'null'); } catch {}
+  if (!p) return;
+  for (const id of PREF_CHECKS) if (typeof p[id] === 'boolean') $(id).checked = p[id];
+  for (const id of PREF_TEXT) if (typeof p[id] === 'string') $(id).value = p[id];
 }
 
 const stagedCohortsOn = () => ({ E:$('cEver').checked, U:$('cUnk').checked, S:$('cSeas').checked });
@@ -539,7 +619,36 @@ function applyStagedFilters(){
         !(cd.dataset.name || '').includes(c.q) && !(cd.dataset.origin || '').includes(c.q));
     }
   }
+  const junk = junkMatchingIds();
+  $('excludeJunk').disabled = !junk.length;
+  $('excludeJunk').textContent = 'exclude junk' + (junk.length ? ' (' + junk.length + ')' : '');
+  savePrefs();
   updateStagedBar($('actionbar'));
+}
+
+// Everything currently loaded whose name hits a junk term. The junk filter only
+// ever hid these, so the same subscriptions and gift sets came back every
+// session; this tombstones them in one call instead of card-by-card. Reversible
+// like any exclusion — a restored card can be clicked back.
+function junkMatchingIds(){
+  const terms = junkTerms(); if (!terms.length || !$('cJunk').checked) return [];
+  const list = $('staged-list'); const ids = [];
+  if (list) for (const d of list.children)
+    for (const i of d._r.items)
+      if (!stagedExcluded.has(i.id) && termsHit((i.name || '').toLowerCase(), terms)) ids.push(i.id);
+  return ids;
+}
+
+async function excludeJunk(){
+  const ids = junkMatchingIds(); if (!ids.length) return;
+  if (!confirm('Exclude ' + ids.length + ' coffee' + (ids.length === 1 ? '' : 's') +
+               ' matching your junk terms? They leave the queue for good.')) return;
+  const btn = $('excludeJunk'); btn.disabled = true; btn.textContent = 'Excluding…';
+  try {
+    const r = await api({ action:'exclude_staged', ids });
+    toast('Excluded ' + r.excluded + '.', 'ok');
+    dirty.staged = true; loadTab('staged'); loadCounts();
+  } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
 }
 
 // Ids that would be approved: visible + checked roasters, minus excluded cards,
@@ -566,12 +675,29 @@ function updateStagedBar(bar){
   btn.onclick = () => approveStaged(ids);
 }
 
+// Which roasters a batch would touch, biggest first. A count alone can't tell
+// you that a filter slipped and pulled in a roaster you never opened; the
+// names can, and this is the last moment before the write lands.
+function publishBreakdown(ids){
+  const list = $('staged-list'); if (!list) return '';
+  const want = new Set(ids), byRoaster = new Map();
+  for (const d of list.children)
+    for (const i of d._r.items)
+      if (want.has(i.id)) byRoaster.set(d._r.name, (byRoaster.get(d._r.name) || 0) + 1);
+  const sorted = [...byRoaster.entries()].sort((a, b) => b[1] - a[1]);
+  const head = sorted.slice(0, 6).map(([n, c]) => '  ' + n + ' (' + c + ')').join('\n');
+  return '\n\n' + sorted.length + ' roaster' + (sorted.length === 1 ? '' : 's') + ':\n' + head +
+         (sorted.length > 6 ? '\n  …and ' + (sorted.length - 6) + ' more' : '');
+}
+
 async function approveStaged(ids){
   if (!ids.length) return;
-  if (!confirm('Publish ' + ids.length + ' staged coffee' + (ids.length === 1 ? '' : 's') + '?')) return;
+  if (!confirm('Publish ' + ids.length + ' staged coffee' + (ids.length === 1 ? '' : 's') + '?' +
+               publishBreakdown(ids))) return;
   const btn = $('actionBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
   try {
     const r = await api({ action:'approve_staged', ids });
+    setLastPublish(ids);
     // A shortfall means some ids no longer matched the staged predicate (already
     // published elsewhere, tombstoned since the snapshot). Say so rather than
     // reporting only the successes — a silent partial reads as a full publish.
@@ -579,19 +705,70 @@ async function approveStaged(ids){
     toast('Published ' + r.published + ' coffee' + (r.published === 1 ? '' : 's') +
           (short > 0 ? ' · ' + short + ' skipped (no longer staged)' : '') + '.',
           short > 0 ? 'err' : 'ok');
-    dirty.staged = true; loadTab('staged');
+    dirty.staged = true; loadTab('staged'); loadCounts();
   } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
 }
+
+// ---- Undo the last publish -------------------------------------------------
+// Publishing is the one high-volume action with no way back — a mis-set filter
+// could put several hundred coffees live and only a hand-written dashboard
+// UPDATE could retract them. Hold the ids from the last batch for the session
+// and offer one tap that re-hides exactly those (0093), leaving them staged and
+// un-rejected. Deliberately in the top bar, not the toast: the moment you
+// realise a publish was wrong is usually several seconds after the toast went.
+let lastPublish = null;
+
+function setLastPublish(ids){
+  lastPublish = ids.slice();
+  const btn = $('undoBtn');
+  btn.style.display = '';
+  btn.textContent = 'Undo publish (' + ids.length + ')';
+}
+
+function clearLastPublish(){ lastPublish = null; $('undoBtn').style.display = 'none'; }
+
+$('undoBtn').onclick = async () => {
+  if (!lastPublish?.length) return clearLastPublish();
+  if (!confirm('Re-hide the ' + lastPublish.length + ' coffee' + (lastPublish.length === 1 ? '' : 's') +
+               ' from the last publish? They return to the staged queue for review.')) return;
+  const btn = $('undoBtn'); btn.disabled = true; btn.textContent = 'Undoing…';
+  try {
+    const r = await api({ action:'unpublish_staged', ids: lastPublish });
+    toast('Re-hidden ' + r.unpublished + ' — back in the staged queue.', 'ok');
+    clearLastPublish();
+    dirty.staged = true; loadTab('staged'); loadCounts();
+  } catch (err) {
+    toast(err.message, 'err');
+  } finally { btn.disabled = false; }
+};
 
 // ============================================================================
 // ROASTERS TAB — ported from tools/triage/build_roaster_triage.py
 // ============================================================================
+// How far through the seed rotation the first-party roster is. Most roasters
+// looking "stale" is normal — a full pass takes cycleDays — so the panel
+// reports against that computed cycle instead of raw ages, and only calls out
+// the ones genuinely behind it.
+function rotationPanel(rot){
+  if (!rot) return '';
+  const warn = rot.behind > 0 || rot.never > 0;
+  return '<div class="rotation' + (warn ? ' warn' : '') + '">' +
+    '<div class="rhead"><b>Seed rotation</b> · ' + rot.enabled + ' roasters in rotation · ' +
+      'full pass ≈ ' + rot.cycleDays + ' day' + (rot.cycleDays === 1 ? '' : 's') +
+      (rot.behind ? ' · <span class="bad">' + rot.behind + ' behind schedule</span>' : ' · on schedule') +
+      (rot.never ? ' · <span class="bad">' + rot.never + ' never scraped</span>' : '') + '</div>' +
+    '<div class="subline">stalest: ' +
+      rot.stalest.map(s => esc(s.name) + ' (' + (s.days == null ? 'never' : s.days + 'd') + ')').join(' · ') +
+    '</div></div>';
+}
+
 function renderRoasters(payload){
-  const pane = $('pane-roasters'); pane.innerHTML = '';
-  $('badge-roasters').textContent = payload.length ? '· ' + payload.length : '';
-  if (!payload.length) { pane.innerHTML = '<div class="empty-state">No user-submitted roasters awaiting a decision.</div>'; updateActionBar(); return; }
+  const rot = payload.rotation, list0 = payload.roasters || [];
+  const pane = $('pane-roasters'); pane.innerHTML = rotationPanel(rot);
+  $('badge-roasters').textContent = list0.length ? '· ' + list0.length : '';
+  if (!list0.length) { pane.innerHTML += '<div class="empty-state">No user-submitted roasters awaiting a decision.</div>'; updateActionBar(); return; }
   const list = document.createElement('div'); list.id = 'roaster-list'; pane.appendChild(list);
-  for (const r of payload) {
+  for (const r of list0) {
     const d = document.createElement('details');
     const ever = r.items.filter(i => i.ever === true).length;
     const noImg = r.items.filter(i => !i.img).length;
@@ -1016,6 +1193,9 @@ async function submitGear(tab){
 }
 
 // ---- Boot ------------------------------------------------------------------
-if (tokens()?.access_token) { showApp(''); setTab('staged'); }
+// Prefs first: the sold-out lens decides what the very first staged request
+// asks the server for, so it has to be restored before any tab loads.
+loadPrefs();
+if (tokens()?.access_token) { showApp(''); setTab('staged'); loadCounts(); }
 else showLogin();
 </script>
