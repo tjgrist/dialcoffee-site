@@ -572,7 +572,13 @@ async function approveStaged(ids){
   const btn = $('actionBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
   try {
     const r = await api({ action:'approve_staged', ids });
-    toast('Published ' + r.published + ' coffee' + (r.published === 1 ? '' : 's') + '.', 'ok');
+    // A shortfall means some ids no longer matched the staged predicate (already
+    // published elsewhere, tombstoned since the snapshot). Say so rather than
+    // reporting only the successes — a silent partial reads as a full publish.
+    const short = (r.requested || ids.length) - r.published;
+    toast('Published ' + r.published + ' coffee' + (r.published === 1 ? '' : 's') +
+          (short > 0 ? ' · ' + short + ' skipped (no longer staged)' : '') + '.',
+          short > 0 ? 'err' : 'ok');
     dirty.staged = true; loadTab('staged');
   } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
 }
