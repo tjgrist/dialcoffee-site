@@ -253,6 +253,12 @@
           <button class="ghost" id="excludeJunk" disabled>exclude junk</button>
         </span>
         <span class="sub" id="n-dupes"></span>
+        <label>sort
+          <select id="stagedSort">
+            <option value="size">roaster size</option>
+            <option value="recent">recently updated</option>
+          </select>
+        </label>
         <input type="search" id="q" placeholder="search roaster, coffee, origin…" style="width:200px">
         <button class="ghost" id="checkAll">check all</button>
         <button class="ghost" id="uncheckAll">uncheck all</button>
@@ -520,8 +526,9 @@ function renderStaged(payload){
   };
   $('collapseAll').onclick = () => { for (const d of list.children) d.open = false; };
   list.addEventListener('change', e => { if (e.target.classList.contains('inc')) updateStagedBar($('actionbar')); });
+  $('stagedSort').onchange = applyStagedSort;
 
-  [...list.children].slice(-6).forEach(d => d.open = true);
+  applyStagedSort({ initial: true });
   applyStagedFilters();
 }
 
@@ -628,7 +635,7 @@ async function editStagedPhoto(ev, btn){
 const PREFS = 'dc_triage_prefs';
 const PREF_CHECKS = ['cEver','cUnk','cSeas','cRated','cStock','rL','rM','rD','rO','cJunk',
                      'pSoldOnly','pEver','pUnk','pSeas','prL','prM','prD','prO'];
-const PREF_TEXT = ['junk','maxPrice'];
+const PREF_TEXT = ['junk','maxPrice','stagedSort'];
 
 function savePrefs(){
   const p = {};
@@ -685,6 +692,57 @@ const stagedPasses = (i, c) => c.coh[cohortOf(i)] && c.roast[roastBucket(i)] &&
   !(c.maxPrice != null && i.price > c.maxPrice) &&
   !(c.hideSold && i.stock === false) &&
   !(c.junkOn && c.junkTerms.length && termsHit((i.name || '').toLowerCase(), c.junkTerms));
+
+// ---- Staged sort -----------------------------------------------------------
+// Roasters stay grouped (the approve-a-whole-roaster workflow depends on it);
+// the sort only decides the order of the groups and of the cards within each.
+// "roaster size" is the long-standing default (biggest feeds first);
+// "recently updated" surfaces what the seeder just touched, by updated_at —
+// bumped to now() on every insert and re-seed (0048).
+const stagedSortKey = () => $('stagedSort').value || 'size';
+
+// Newest updated_at among a roaster's items. PostgREST timestamptz values from
+// one DB share an offset, so a lexical max is chronological — no Date parsing.
+function roasterRecency(r){
+  let max = '';
+  for (const i of r.items) if ((i.updated || '') > max) max = i.updated || '';
+  return max;
+}
+
+// Order a roaster's items to match the active sort, so lazy-rendered grids and
+// any later reorder agree. Recent → newest first; size → the server's name order.
+function sortStagedItems(r, key){
+  r.items.sort(key === 'recent'
+    ? (a, b) => (b.updated || '').localeCompare(a.updated || '') || (a.name || '').localeCompare(b.name || '')
+    : (a, b) => (a.name || '').localeCompare(b.name || ''));
+}
+
+function applyStagedSort(opts){
+  const list = $('staged-list'); if (!list) return;
+  const key = stagedSortKey();
+  const kids = [...list.children];
+  kids.sort(key === 'recent'
+    ? (a, b) => roasterRecency(b._r).localeCompare(roasterRecency(a._r))
+    : (a, b) => b._r.items.length - a._r.items.length || (a._r.name || '').localeCompare(b._r.name || ''));
+  for (const d of kids) {
+    sortStagedItems(d._r, key);
+    list.appendChild(d);                 // re-append in the new group order
+    // A grid already built keeps its cards (and their excluded state + the click
+    // listener); just reorder the existing nodes to match the new item order.
+    if (d.dataset.done) {
+      const g = d.querySelector('.grid');
+      const byId = new Map([...g.children].map(c => [c.dataset.id, c]));
+      for (const it of d._r.items) { const c = byId.get(String(it.id)); if (c) g.appendChild(c); }
+    }
+  }
+  // Auto-open only on first render (not on a user toggle, which would expand
+  // groups out from under them): newest in recent mode, the smallest tail in
+  // size mode — same groups the page opened before.
+  if (opts && opts.initial) {
+    for (const d of (key === 'recent' ? kids.slice(0, 6) : kids.slice(-6))) d.open = true;
+  }
+  savePrefs();
+}
 
 function applyStagedFilters(){
   const pane = $('pane-staged'), list = $('staged-list'); if (!list) return;
