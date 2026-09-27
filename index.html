@@ -90,6 +90,11 @@ h1 .accent{color:var(--caramel)}
 .badge.soft{background:transparent;color:var(--muted);border:1.5px solid var(--hairline);
   box-shadow:none}
 .badge.soft .glyph{opacity:.6}
+.badge.web{background:var(--caramel);color:#fff}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-app{font-size:.85em;font-weight:600;color:#fff;background:var(--caramel);
+  padding:7px 14px;border-radius:999px;text-decoration:none}
+.nav-app:hover{filter:brightness(1.06)}
 .soon-note{font-size:.86em;color:var(--muted);margin:16px 0 0}
 
 /* ---- Phone mockup ---- */
@@ -161,7 +166,10 @@ footer .cr{font-size:.88em;color:var(--muted)}
 
 <nav>
   <a class="brand" href="/"><img class="mark" src="/icon-192.png" width="38" height="38" alt="">Dial Coffee</a>
-  <span class="nav-soon">Coming soon · iOS</span>
+  <div class="nav-right">
+    <span class="nav-soon">Coming soon · iOS</span>
+    <a class="nav-app" href="https://app.dialcoffee.site">Open web app</a>
+  </div>
 </nav>
 
 <div class="wrap">
@@ -177,6 +185,10 @@ footer .cr{font-size:.88em;color:var(--muted)}
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Free to start</li>
       </ul>
       <div class="badges">
+        <a class="badge web" href="https://app.dialcoffee.site">
+          <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></span>
+          <span><small>Use it now on the</small><b>Web App</b></span>
+        </a>
         <a class="badge" aria-disabled="true">
           <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.04c-.03-2.9 2.37-4.29 2.48-4.36-1.35-1.98-3.46-2.25-4.21-2.28-1.79-.18-3.5 1.05-4.41 1.05-.91 0-2.31-1.03-3.8-1-1.96.03-3.77 1.14-4.78 2.9-2.04 3.53-.52 8.76 1.46 11.63.97 1.4 2.12 2.98 3.63 2.92 1.46-.06 2.01-.94 3.77-.94 1.76 0 2.26.94 3.8.91 1.57-.03 2.56-1.43 3.52-2.84 1.11-1.63 1.57-3.21 1.59-3.29-.03-.02-3.05-1.17-3.08-4.64zM14.13 4.36c.81-.98 1.35-2.35 1.2-3.71-1.16.05-2.57.77-3.41 1.75-.75.86-1.41 2.24-1.23 3.57 1.29.1 2.62-.66 3.44-1.61z"/></svg></span>
           <span><small>Coming soon on the</small><b>App Store</b></span>
@@ -186,7 +198,7 @@ footer .cr{font-size:.88em;color:var(--muted)}
           <span><small>Coming later to</small><b>Google Play</b></span>
         </a>
       </div>
-      <p class="soon-note">In final preparation for the App Store. Check back soon.</p>
+      <p class="soon-note">The iOS app is in final preparation for the App Store — the web app is live now.</p>
     </div>
 
     <div class="phone-col">
@@ -268,8 +280,12 @@ footer .cr{font-size:.88em;color:var(--muted)}
 
   <section class="cta">
     <h2>Stop guessing. Start dialing.</h2>
-    <p>Dial Coffee is in final preparation for the App Store. Check back soon — or bookmark this page.</p>
+    <p>The iOS app is in final preparation for the App Store. Until then, the web app has the same log, dial-in and journal — sign in with the same account.</p>
     <div class="badges">
+      <a class="badge web" href="https://app.dialcoffee.site">
+      <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></span>
+        <span><small>Use it now on the</small><b>Web App</b></span>
+      </a>
       <a class="badge" aria-disabled="true">
         <span class="glyph" aria-hidden="true"></span>
         <span><small>Coming soon on the</small><b>App Store</b></span>
@@ -282,6 +298,7 @@ footer .cr{font-size:.88em;color:var(--muted)}
 <footer>
   <div class="wrap">
     <div class="links">
+      <a href="https://app.dialcoffee.site">Web App</a>
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
       <a href="support.html">Support</a>
